@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
 import { Capacitor } from '@capacitor/core';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { DatabaseService } from './database.service';
 import { BarcodeMapping } from '../models/inventory.model';
 
@@ -8,7 +9,21 @@ import { BarcodeMapping } from '../models/inventory.model';
   providedIn: 'root'
 })
 export class BarcodeService {
-  constructor(private db: DatabaseService) { }
+  constructor(private db: DatabaseService, private snackBar: MatSnackBar) { }
+
+  private confirmBarcode(value: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      const ref = this.snackBar.open(`Scanned: ${value}`, '✗ Wrong?', {
+        duration: 4000,
+        verticalPosition: 'bottom',
+        horizontalPosition: 'center'
+      });
+      ref.onAction().subscribe(() => resolve(null));
+      ref.afterDismissed().subscribe(({ dismissedByAction }) => {
+        if (!dismissedByAction) resolve(value);
+      });
+    });
+  }
 
   private async startScanAndWaitForResult(timeoutMs = 30000): Promise<string | null> {
     return new Promise<string | null>(async (resolve, reject) => {
@@ -131,7 +146,7 @@ export class BarcodeService {
               try {
                 const fallbackBarcode = await this.startScanAndWaitForResult();
                 console.info('[BarcodeService] startScan fallback returned barcode:', fallbackBarcode);
-                if (fallbackBarcode) return fallbackBarcode;
+                if (fallbackBarcode) return await this.confirmBarcode(fallbackBarcode);
               } catch (fallbackErr) {
                 console.error('[BarcodeService] startScan fallback failed:', fallbackErr);
                 throw new Error('Google Barcode module not available and startScan fallback failed');
@@ -147,7 +162,7 @@ export class BarcodeService {
       try {
         const result = await BarcodeScanner.scan();
         if (result.barcodes && result.barcodes.length > 0) {
-          return result.barcodes[0].rawValue;
+          return await this.confirmBarcode(result.barcodes[0].rawValue);
         }
         return null;
       } catch (scanErr: any) {
@@ -160,7 +175,8 @@ export class BarcodeService {
         // If scan() fails because the google module is still missing, try startScan() fallback
         console.warn('[BarcodeService] scan() failed, attempting startScan fallback:', scanErr);
         try {
-          return await this.startScanAndWaitForResult();
+          const val = await this.startScanAndWaitForResult();
+          return val ? await this.confirmBarcode(val) : null;
         } catch (fallbackErr) {
           console.error('[BarcodeService] startScan fallback also failed:', fallbackErr);
           throw scanErr; // rethrow original error so caller can handle

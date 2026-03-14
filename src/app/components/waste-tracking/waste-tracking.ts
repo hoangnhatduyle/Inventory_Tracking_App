@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,6 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { WasteTrackingService } from '../../services/waste-tracking.service';
 import { WastedItem, WasteStatistics } from '../../models/waste-tracking.model';
 import { Category } from '../../models/inventory.model';
@@ -26,7 +27,8 @@ import { AuthService } from '../../services/auth.service';
     MatFormFieldModule,
     MatSelectModule,
     MatProgressSpinnerModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatPaginatorModule
   ],
   templateUrl: './waste-tracking.html',
   styleUrls: ['./waste-tracking.scss']
@@ -39,6 +41,20 @@ export class WasteTrackingComponent implements OnInit {
   selectedCategoryId: number | null = null;
   selectedTimeRange: string = 'all'; // 'week', 'month', 'year', 'all'
   loading = true;
+
+  @ViewChild(MatPaginator) paginator!: MatPaginator;
+  pageSize = 20;
+  pageIndex = 0;
+
+  get pagedItems(): WastedItem[] {
+    const start = this.pageIndex * this.pageSize;
+    return this.filteredItems.slice(start, start + this.pageSize);
+  }
+
+  onPageChange(event: PageEvent) {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+  }
 
   constructor(
     private wasteTrackingService: WasteTrackingService,
@@ -100,6 +116,8 @@ export class WasteTrackingComponent implements OnInit {
     }
 
     this.filteredItems = filtered;
+    this.pageIndex = 0;
+    if (this.paginator) this.paginator.firstPage();
   }
 
   onCategoryFilterChange(categoryId: number | null) {

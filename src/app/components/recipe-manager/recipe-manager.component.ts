@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -11,6 +11,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { StatisticsService } from '../../services/statistics.service';
 import { Recipe } from '../../models/statistics.model';
 import { RecipeFormDialogComponent } from '../../components/recipe-manager/recipe-form-dialog.component';
@@ -29,7 +30,8 @@ import { RecipeFormDialogComponent } from '../../components/recipe-manager/recip
     MatDividerModule,
     MatDialogModule,
     MatSnackBarModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatPaginatorModule
   ],
   template: `
     <div class="recipe-manager-container">
@@ -56,7 +58,7 @@ import { RecipeFormDialogComponent } from '../../components/recipe-manager/recip
       </div>
 
       <div class="recipes-list" *ngIf="!isLoading">
-        <mat-card *ngFor="let recipe of filteredRecipes" class="recipe-card">
+        <mat-card *ngFor="let recipe of pagedRecipes" class="recipe-card">
           <mat-card-content>
             <div class="recipe-header">
               <h2>{{ recipe.name }}</h2>
@@ -98,6 +100,16 @@ import { RecipeFormDialogComponent } from '../../components/recipe-manager/recip
             </div>
           </mat-card-content>
         </mat-card>
+
+        <mat-paginator
+          *ngIf="filteredRecipes.length > pageSize"
+          [length]="filteredRecipes.length"
+          [pageSize]="pageSize"
+          [pageSizeOptions]="[12, 24, 48]"
+          [pageIndex]="pageIndex"
+          (page)="onPageChange($event)"
+          aria-label="Select page">
+        </mat-paginator>
 
         <div *ngIf="filteredRecipes.length === 0" class="empty-state">
           <mat-icon>menu_book</mat-icon>
@@ -279,6 +291,20 @@ export class RecipeManagerComponent implements OnInit {
   searchQuery = '';
   isLoading = false;
 
+  @ViewChild(MatPaginator) paginator!: MatPaginator;
+  pageSize = 12;
+  pageIndex = 0;
+
+  get pagedRecipes(): Recipe[] {
+    const start = this.pageIndex * this.pageSize;
+    return this.filteredRecipes.slice(start, start + this.pageSize);
+  }
+
+  onPageChange(event: PageEvent) {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+  }
+
   constructor(
     private router: Router,
     private statisticsService: StatisticsService,
@@ -312,6 +338,8 @@ export class RecipeManagerComponent implements OnInit {
         recipe.ingredients.toLowerCase().includes(query)
       );
     }
+    this.pageIndex = 0;
+    if (this.paginator) this.paginator.firstPage();
   }
 
   getIngredientsList(recipe: Recipe): string[] {

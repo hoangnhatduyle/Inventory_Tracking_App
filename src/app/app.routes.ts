@@ -7,6 +7,7 @@ import { ShoppingList } from './components/shopping-list/shopping-list';
 import { WasteTrackingComponent } from './components/waste-tracking/waste-tracking';
 import { Settings } from './components/settings/settings';
 import { RecipeManagerComponent } from './components/recipe-manager/recipe-manager.component';
+import { ReceiptScanComponent } from './components/receipt-scan/receipt-scan.component';
 import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
@@ -20,5 +21,6 @@ export const routes: Routes = [
   { path: 'waste-tracking', component: WasteTrackingComponent, canActivate: [authGuard] },
   { path: 'settings', component: Settings, canActivate: [authGuard] },
   { path: 'recipe-manager', component: RecipeManagerComponent, canActivate: [authGuard] },
+  { path: 'receipt-scan', component: ReceiptScanComponent, canActivate: [authGuard] },
   { path: '**', redirectTo: '/dashboard' }
 ];

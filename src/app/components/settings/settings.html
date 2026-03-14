@@ -4,482 +4,491 @@
     <p class="subtitle">Manage your app preferences and data</p>
   </div>
 
-  <!-- Account Section -->
-  <mat-expansion-panel class="settings-panel" [expanded]="true">
-    <mat-expansion-panel-header>
-      <mat-panel-title>
-        <mat-icon>person</mat-icon>
-        <span>Account</span>
-      </mat-panel-title>
-    </mat-expansion-panel-header>
-    
-    <div class="panel-content">
-      <div class="account-info" *ngIf="currentUser">
-        <div class="info-row">
-          <mat-icon>account_circle</mat-icon>
-          <div>
-            <strong>Username</strong>
-            <p>{{ currentUser.username }}</p>
-          </div>
-        </div>
-        <div class="info-row" *ngIf="currentUser.email">
-          <mat-icon>email</mat-icon>
-          <div>
-            <strong>Email</strong>
-            <p>{{ currentUser.email }}</p>
-          </div>
-        </div>
-        <div class="info-row" *ngIf="currentUser.createdAt">
-          <mat-icon>event</mat-icon>
-          <div>
-            <strong>Member Since</strong>
-            <p>{{ currentUser.createdAt | date:'mediumDate' }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </mat-expansion-panel>
+  <mat-tab-group animationDuration="0ms" class="settings-tab-group">
 
-  <!-- Storage Locations Section -->
-  <mat-expansion-panel class="settings-panel" [expanded]="true">
-    <mat-expansion-panel-header>
-      <mat-panel-title>
-        <mat-icon>location_on</mat-icon>
-        <span>Storage Locations</span>
-      </mat-panel-title>
-      <mat-panel-description>
-        {{ locations.length }} location{{ locations.length !== 1 ? 's' : '' }}
-      </mat-panel-description>
-    </mat-expansion-panel-header>
-    
-    <div class="panel-content">
-      <p class="helper-text">Add and manage where you store your food items</p>
-      
-      <button mat-raised-button color="primary" (click)="openAddLocationDialog()" class="add-location-btn">
-        <mat-icon>add</mat-icon>
-        Add Location
-      </button>
+    <!-- ═══════════════════════ GENERAL TAB ═══════════════════════ -->
+    <mat-tab label="General">
 
-      <div *ngIf="locations.length > 0" class="locations-list">
-        <div *ngFor="let location of locations" class="location-item">
-          <div class="location-content">
-            <mat-icon>kitchen</mat-icon>
-            <div class="location-text">
-              <div class="location-name">{{ location.name }}</div>
-              <div class="location-sublocation" *ngIf="location.subLocation">{{ location.subLocation }}</div>
+      <!-- Account Section -->
+      <mat-expansion-panel class="settings-panel" [expanded]="true">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>person</mat-icon>
+            <span>Account</span>
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+
+        <div class="panel-content">
+          <div class="account-info" *ngIf="currentUser">
+            <div class="info-row">
+              <mat-icon>account_circle</mat-icon>
+              <div>
+                <strong>Username</strong>
+                <p>{{ currentUser.username }}</p>
+              </div>
+            </div>
+            <div class="info-row" *ngIf="currentUser.email">
+              <mat-icon>email</mat-icon>
+              <div>
+                <strong>Email</strong>
+                <p>{{ currentUser.email }}</p>
+              </div>
+            </div>
+            <div class="info-row" *ngIf="currentUser.createdAt">
+              <mat-icon>event</mat-icon>
+              <div>
+                <strong>Member Since</strong>
+                <p>{{ currentUser.createdAt | date:'mediumDate' }}</p>
+              </div>
             </div>
           </div>
-          <div class="location-actions">
-            <button mat-icon-button (click)="openEditLocationDialog(location)" matTooltip="Edit">
-              <mat-icon>edit</mat-icon>
-            </button>
-            <button mat-icon-button (click)="deleteLocation(location)" matTooltip="Delete" color="warn">
-              <mat-icon>delete</mat-icon>
-            </button>
-          </div>
         </div>
-      </div>
+      </mat-expansion-panel>
 
-      <div *ngIf="locations.length === 0" class="empty-state">
-        <mat-icon>location_off</mat-icon>
-        <p>No locations added yet</p>
-        <p class="empty-hint">Add your first storage location to start organizing your inventory</p>
-      </div>
-    </div>
-  </mat-expansion-panel>
+      <!-- Storage Locations Section -->
+      <mat-expansion-panel class="settings-panel" [expanded]="true">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>location_on</mat-icon>
+            <span>Storage Locations</span>
+          </mat-panel-title>
+          <mat-panel-description>
+            {{ locations.length }} location{{ locations.length !== 1 ? 's' : '' }}
+          </mat-panel-description>
+        </mat-expansion-panel-header>
 
-  <!-- Recipe Management Section -->
-  <mat-expansion-panel class="settings-panel">
-    <mat-expansion-panel-header>
-      <mat-panel-title>
-        <mat-icon>restaurant_menu</mat-icon>
-        <span>Recipe Management</span>
-      </mat-panel-title>
-    </mat-expansion-panel-header>
-    
-    <div class="panel-content">
-      <p class="helper-text">Manage your recipe database for meal planning suggestions</p>
-      
-      <div class="notification-setting">
-        <div class="setting-info">
-          <mat-icon>menu_book</mat-icon>
-          <div>
-            <strong>Manage Recipes</strong>
-            <p>Add, edit, and delete recipes for ingredient matching</p>
-          </div>
-        </div>
-        <button mat-raised-button color="primary" (click)="navigateToRecipeManager()">
-          <mat-icon>arrow_forward</mat-icon>
-          Open Recipe Manager
-        </button>
-      </div>
-    </div>
-  </mat-expansion-panel>
+        <div class="panel-content">
+          <p class="helper-text">Add and manage where you store your food items</p>
 
-  <!-- Notifications Section -->
-  <mat-expansion-panel class="settings-panel">
-    <mat-expansion-panel-header>
-      <mat-panel-title>
-        <mat-icon>notifications</mat-icon>
-        <span>Notifications</span>
-      </mat-panel-title>
-    </mat-expansion-panel-header>
-    
-    <div class="panel-content">
-      <p class="helper-text">Manage expiration notifications and reminders</p>
-      
-      <div class="notification-setting">
-        <div class="setting-info">
-          <mat-icon>notifications_active</mat-icon>
-          <div>
-            <strong>Enable Notifications</strong>
-            <p>Receive alerts for expiring items</p>
-          </div>
-        </div>
-        <button mat-raised-button color="accent" (click)="requestNotificationPermissions()">
-          <mat-icon>check_circle</mat-icon>
-          Grant Permission
-        </button>
-      </div>
-
-      <mat-divider></mat-divider>
-
-      <div class="notification-setting">
-        <div class="setting-info">
-          <mat-icon>refresh</mat-icon>
-          <div>
-            <strong>Reschedule Notifications</strong>
-            <p>Update notifications for all items</p>
-          </div>
-        </div>
-        <button mat-raised-button (click)="rescheduleNotifications()">
-          <mat-icon>sync</mat-icon>
-          Reschedule
-        </button>
-      </div>
-
-      <mat-divider></mat-divider>
-
-      <div class="notification-setting">
-        <div class="setting-info">
-          <mat-icon>list</mat-icon>
-          <div>
-            <strong>View Pending Notifications</strong>
-            <p>See all scheduled notifications in console</p>
-          </div>
-        </div>
-        <button mat-raised-button (click)="viewPendingNotifications()">
-          <mat-icon>visibility</mat-icon>
-          View Pending
-        </button>
-      </div>
-
-      <mat-divider></mat-divider>
-
-      <div class="notification-setting">
-        <div class="setting-info">
-          <mat-icon>science</mat-icon>
-          <div>
-            <strong>Test Notification</strong>
-            <p>Send a test notification in 1 minute</p>
-          </div>
-        </div>
-        <button mat-raised-button color="primary" (click)="scheduleTestNotification()">
-          <mat-icon>send</mat-icon>
-          Schedule Test
-        </button>
-      </div>
-    </div>
-  </mat-expansion-panel>
-
-  <!-- PIN Security Section -->
-  <mat-expansion-panel class="settings-panel">
-    <mat-expansion-panel-header>
-      <mat-panel-title>
-        <mat-icon>lock</mat-icon>
-        <span>PIN Security</span>
-      </mat-panel-title>
-      <mat-panel-description>
-        Protect Admin Sections
-      </mat-panel-description>
-    </mat-expansion-panel-header>
-    
-    <div class="panel-content">
-      <p class="helper-text">Secure access to Database Browser, Image Storage, and Console Logs</p>
-      
-      <div *ngIf="!isPinSet" class="notification-setting">
-        <div class="setting-info">
-          <mat-icon color="warn">lock_open</mat-icon>
-          <div>
-            <strong>No PIN Set</strong>
-            <p>Admin sections are currently unprotected</p>
-          </div>
-        </div>
-        <button mat-raised-button color="primary" (click)="setupPin()">
-          <mat-icon>add</mat-icon>
-          Set PIN
-        </button>
-      </div>
-
-      <div *ngIf="isPinSet && !isAdminUnlocked" class="notification-setting">
-        <div class="setting-info">
-          <mat-icon color="primary">lock</mat-icon>
-          <div>
-            <strong>Admin Sections Locked</strong>
-            <p>Enter PIN to access protected sections</p>
-          </div>
-        </div>
-        <button mat-raised-button color="accent" (click)="unlockAdminSections()">
-          <mat-icon>lock_open</mat-icon>
-          Unlock
-        </button>
-      </div>
-
-      <div *ngIf="isPinSet && isAdminUnlocked" class="notification-setting">
-        <div class="setting-info">
-          <mat-icon style="color: #4caf50;">lock_open</mat-icon>
-          <div>
-            <strong>Admin Sections Unlocked</strong>
-            <p>You have access to all protected sections</p>
-          </div>
-        </div>
-        <button mat-raised-button (click)="lockAdminSections()">
-          <mat-icon>lock</mat-icon>
-          Lock
-        </button>
-      </div>
-
-      <mat-divider *ngIf="isPinSet"></mat-divider>
-
-      <div *ngIf="isPinSet" class="notification-setting">
-        <div class="setting-info">
-          <mat-icon>edit</mat-icon>
-          <div>
-            <strong>Change PIN</strong>
-            <p>Update your security PIN</p>
-          </div>
-        </div>
-        <button mat-raised-button (click)="changePin()">
-          <mat-icon>vpn_key</mat-icon>
-          Change PIN
-        </button>
-      </div>
-
-      <mat-divider *ngIf="isPinSet"></mat-divider>
-
-      <div *ngIf="isPinSet" class="notification-setting">
-        <div class="setting-info">
-          <mat-icon color="warn">delete</mat-icon>
-          <div>
-            <strong>Remove PIN</strong>
-            <p>Disable PIN protection</p>
-          </div>
-        </div>
-        <button mat-raised-button color="warn" (click)="removePin()">
-          <mat-icon>no_encryption</mat-icon>
-          Remove PIN
-        </button>
-      </div>
-    </div>
-  </mat-expansion-panel>
-
-  <!-- API Configuration Section -->
-  <mat-expansion-panel class="settings-panel">
-    <mat-expansion-panel-header>
-      <mat-panel-title>
-        <mat-icon>api</mat-icon>
-        <span>API Configuration</span>
-      </mat-panel-title>
-      <mat-panel-description>
-        <span *ngIf="apiConfigService.hasOpenaiApiKey()">✓ Configured</span>
-        <span *ngIf="!apiConfigService.hasOpenaiApiKey()">Not configured</span>
-      </mat-panel-description>
-    </mat-expansion-panel-header>
-
-    <div class="panel-content">
-      <p class="helper-text">Configure API keys for AI features</p>
-
-      <div class="api-config-item">
-        <div class="api-info">
-          <mat-icon>smart_toy</mat-icon>
-          <div>
-            <strong>OpenAI API Key</strong>
-            <p>Enable AI-powered expiration date suggestions</p>
-            <small *ngIf="apiConfigService.hasOpenaiApiKey()" style="color: #4caf50; display: block; margin-top: 4px;">✓ API key configured</small>
-            <small *ngIf="!apiConfigService.hasOpenaiApiKey()" style="color: #ff9800; display: block; margin-top: 4px;">⚠️ Not configured - AI features disabled</small>
-          </div>
-        </div>
-        <div>
-          <button mat-raised-button color="primary" (click)="showApiKeyInput = !showApiKeyInput" *ngIf="!showApiKeyInput">
-            <mat-icon>{{ apiConfigService.hasOpenaiApiKey() ? 'edit' : 'add' }}</mat-icon>
-            {{ apiConfigService.hasOpenaiApiKey() ? 'Update' : 'Add' }} API Key
+          <button mat-raised-button color="primary" (click)="openAddLocationDialog()" class="add-location-btn">
+            <mat-icon>add</mat-icon>
+            Add Location
           </button>
 
-          <div *ngIf="showApiKeyInput" class="api-key-input-section">
-            <mat-form-field class="full-width">
-              <mat-label>OpenAI API Key</mat-label>
-              <input matInput type="password" [(ngModel)]="openaiApiKey" placeholder="sk-...">
-              <mat-hint>Your key is stored locally and never sent to our servers</mat-hint>
-            </mat-form-field>
-            <div class="action-buttons">
-              <button mat-raised-button color="primary" (click)="saveOpenaiApiKey()">
-                <mat-icon>save</mat-icon>
-                Save
+          <div *ngIf="locations.length > 0" class="locations-list">
+            <div *ngFor="let location of locations" class="location-item">
+              <div class="location-content">
+                <mat-icon>kitchen</mat-icon>
+                <div class="location-text">
+                  <div class="location-name">{{ location.name }}</div>
+                  <div class="location-sublocation" *ngIf="location.subLocation">{{ location.subLocation }}</div>
+                </div>
+              </div>
+              <div class="location-actions">
+                <button mat-icon-button (click)="openEditLocationDialog(location)" matTooltip="Edit">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button (click)="deleteLocation(location)" matTooltip="Delete" color="warn">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="locations.length === 0" class="empty-state">
+            <mat-icon>location_off</mat-icon>
+            <p>No locations added yet</p>
+            <p class="empty-hint">Add your first storage location to start organizing your inventory</p>
+          </div>
+        </div>
+      </mat-expansion-panel>
+
+      <!-- Notifications Section -->
+      <mat-expansion-panel class="settings-panel">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>notifications</mat-icon>
+            <span>Notifications</span>
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+
+        <div class="panel-content">
+          <p class="helper-text">Manage expiration notifications and reminders</p>
+
+          <div class="notification-setting">
+            <div class="setting-info">
+              <mat-icon>notifications_active</mat-icon>
+              <div>
+                <strong>Enable Notifications</strong>
+                <p>Receive alerts for expiring items</p>
+              </div>
+            </div>
+            <button mat-raised-button color="accent" (click)="requestNotificationPermissions()">
+              <mat-icon>check_circle</mat-icon>
+              Grant Permission
+            </button>
+          </div>
+
+          <mat-divider></mat-divider>
+
+          <div class="notification-setting">
+            <div class="setting-info">
+              <mat-icon>refresh</mat-icon>
+              <div>
+                <strong>Reschedule Notifications</strong>
+                <p>Update notifications for all items</p>
+              </div>
+            </div>
+            <button mat-raised-button (click)="rescheduleNotifications()">
+              <mat-icon>sync</mat-icon>
+              Reschedule
+            </button>
+          </div>
+
+          <mat-divider></mat-divider>
+
+          <div class="notification-setting">
+            <div class="setting-info">
+              <mat-icon>list</mat-icon>
+              <div>
+                <strong>View Pending Notifications</strong>
+                <p>See all scheduled notifications in console</p>
+              </div>
+            </div>
+            <button mat-raised-button (click)="viewPendingNotifications()">
+              <mat-icon>visibility</mat-icon>
+              View Pending
+            </button>
+          </div>
+
+          <mat-divider></mat-divider>
+
+          <div class="notification-setting">
+            <div class="setting-info">
+              <mat-icon>science</mat-icon>
+              <div>
+                <strong>Test Notification</strong>
+                <p>Send a test notification in 1 minute</p>
+              </div>
+            </div>
+            <button mat-raised-button color="primary" (click)="scheduleTestNotification()">
+              <mat-icon>send</mat-icon>
+              Schedule Test
+            </button>
+          </div>
+        </div>
+      </mat-expansion-panel>
+
+    </mat-tab>
+
+    <!-- ═══════════════════════ FEATURES TAB ═══════════════════════ -->
+    <mat-tab label="Features">
+
+      <!-- Recipe Management Section -->
+      <mat-expansion-panel class="settings-panel" [expanded]="true">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>restaurant_menu</mat-icon>
+            <span>Recipe Management</span>
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+
+        <div class="panel-content">
+          <p class="helper-text">Manage your recipe database for meal planning suggestions</p>
+
+          <div class="notification-setting">
+            <div class="setting-info">
+              <mat-icon>menu_book</mat-icon>
+              <div>
+                <strong>Manage Recipes</strong>
+                <p>Add, edit, and delete recipes for ingredient matching</p>
+              </div>
+            </div>
+            <button mat-raised-button color="primary" (click)="navigateToRecipeManager()">
+              <mat-icon>arrow_forward</mat-icon>
+              Open Recipe Manager
+            </button>
+          </div>
+        </div>
+      </mat-expansion-panel>
+
+      <!-- API Configuration Section -->
+      <mat-expansion-panel class="settings-panel">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>api</mat-icon>
+            <span>API Configuration</span>
+          </mat-panel-title>
+          <mat-panel-description>
+            <span *ngIf="apiConfigService.hasOpenaiApiKey()">✓ Configured</span>
+            <span *ngIf="!apiConfigService.hasOpenaiApiKey()">Not configured</span>
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+
+        <div class="panel-content">
+          <p class="helper-text">Configure API keys for AI features</p>
+
+          <div class="api-config-item">
+            <div class="api-info">
+              <mat-icon>smart_toy</mat-icon>
+              <div>
+                <strong>OpenAI API Key</strong>
+                <p>Enable AI-powered expiration date suggestions</p>
+                <small *ngIf="apiConfigService.hasOpenaiApiKey()" style="color: #4caf50; display: block; margin-top: 4px;">✓ API key configured</small>
+                <small *ngIf="!apiConfigService.hasOpenaiApiKey()" style="color: #ff9800; display: block; margin-top: 4px;">⚠️ Not configured - AI features disabled</small>
+              </div>
+            </div>
+            <div>
+              <button mat-raised-button color="primary" (click)="showApiKeyInput = !showApiKeyInput" *ngIf="!showApiKeyInput">
+                <mat-icon>{{ apiConfigService.hasOpenaiApiKey() ? 'edit' : 'add' }}</mat-icon>
+                {{ apiConfigService.hasOpenaiApiKey() ? 'Update' : 'Add' }} API Key
               </button>
-              <button mat-raised-button (click)="showApiKeyInput = false">
-                <mat-icon>close</mat-icon>
-                Cancel
+
+              <div *ngIf="showApiKeyInput" class="api-key-input-section">
+                <mat-form-field class="full-width">
+                  <mat-label>OpenAI API Key</mat-label>
+                  <input matInput type="password" [(ngModel)]="openaiApiKey" placeholder="sk-...">
+                  <mat-hint>Your key is stored locally and never sent to our servers</mat-hint>
+                </mat-form-field>
+                <div class="action-buttons">
+                  <button mat-raised-button color="primary" (click)="saveOpenaiApiKey()">
+                    <mat-icon>save</mat-icon>
+                    Save
+                  </button>
+                  <button mat-raised-button (click)="showApiKeyInput = false">
+                    <mat-icon>close</mat-icon>
+                    Cancel
+                  </button>
+                  <button mat-raised-button color="warn" (click)="clearOpenaiApiKey()" *ngIf="apiConfigService.hasOpenaiApiKey()">
+                    <mat-icon>delete</mat-icon>
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="api-info-box">
+            <p><strong>How to get an OpenAI API key:</strong></p>
+            <ol>
+              <li>Go to <a href="https://platform.openai.com/account/api-keys" target="_blank">platform.openai.com/account/api-keys</a></li>
+              <li>Sign in or create a free account</li>
+              <li>Click "Create new secret key"</li>
+              <li>Copy the key and paste it here</li>
+            </ol>
+            <p style="font-size: 12px; color: #999;">Note: OpenAI charges for API usage. Monitor your usage at <a href="https://platform.openai.com/account/billing/overview" target="_blank">platform.openai.com/account/billing</a></p>
+          </div>
+        </div>
+      </mat-expansion-panel>
+
+    </mat-tab>
+
+    <!-- ═══════════════════════ SECURITY TAB ═══════════════════════ -->
+    <mat-tab label="Security">
+
+      <!-- PIN Security Section -->
+      <mat-expansion-panel class="settings-panel" [expanded]="true">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>lock</mat-icon>
+            <span>PIN Security</span>
+          </mat-panel-title>
+          <mat-panel-description>
+            Protect Admin Sections
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+
+        <div class="panel-content">
+          <p class="helper-text">Secure access to Database Browser, Image Storage, and Console Logs</p>
+
+          <div *ngIf="!isPinSet" class="notification-setting">
+            <div class="setting-info">
+              <mat-icon color="warn">lock_open</mat-icon>
+              <div>
+                <strong>No PIN Set</strong>
+                <p>Admin sections are currently unprotected</p>
+              </div>
+            </div>
+            <button mat-raised-button color="primary" (click)="setupPin()">
+              <mat-icon>add</mat-icon>
+              Set PIN
+            </button>
+          </div>
+
+          <div *ngIf="isPinSet && !isAdminUnlocked" class="notification-setting">
+            <div class="setting-info">
+              <mat-icon color="primary">lock</mat-icon>
+              <div>
+                <strong>Admin Sections Locked</strong>
+                <p>Enter PIN to access protected sections</p>
+              </div>
+            </div>
+            <button mat-raised-button color="accent" (click)="unlockAdminSections()">
+              <mat-icon>lock_open</mat-icon>
+              Unlock
+            </button>
+          </div>
+
+          <div *ngIf="isPinSet && isAdminUnlocked" class="notification-setting">
+            <div class="setting-info">
+              <mat-icon style="color: #4caf50;">lock_open</mat-icon>
+              <div>
+                <strong>Admin Sections Unlocked</strong>
+                <p>You have access to all protected sections</p>
+              </div>
+            </div>
+            <button mat-raised-button (click)="lockAdminSections()">
+              <mat-icon>lock</mat-icon>
+              Lock
+            </button>
+          </div>
+
+          <mat-divider *ngIf="isPinSet"></mat-divider>
+
+          <div *ngIf="isPinSet" class="notification-setting">
+            <div class="setting-info">
+              <mat-icon>edit</mat-icon>
+              <div>
+                <strong>Change PIN</strong>
+                <p>Update your security PIN</p>
+              </div>
+            </div>
+            <button mat-raised-button (click)="changePin()">
+              <mat-icon>vpn_key</mat-icon>
+              Change PIN
+            </button>
+          </div>
+
+          <mat-divider *ngIf="isPinSet"></mat-divider>
+
+          <div *ngIf="isPinSet" class="notification-setting">
+            <div class="setting-info">
+              <mat-icon color="warn">delete</mat-icon>
+              <div>
+                <strong>Remove PIN</strong>
+                <p>Disable PIN protection</p>
+              </div>
+            </div>
+            <button mat-raised-button color="warn" (click)="removePin()">
+              <mat-icon>no_encryption</mat-icon>
+              Remove PIN
+            </button>
+          </div>
+        </div>
+      </mat-expansion-panel>
+
+    </mat-tab>
+
+    <!-- ═══════════════════════ ADMIN TAB ═══════════════════════ -->
+    <mat-tab label="Admin">
+
+      @if (isPinSet && !isAdminUnlocked) {
+        <div class="admin-locked-overlay">
+          <mat-icon>lock</mat-icon>
+          <p>Admin sections are PIN protected</p>
+          <button mat-raised-button color="primary" (click)="unlockAdminSections()">
+            <mat-icon>lock_open</mat-icon>
+            Unlock with PIN
+          </button>
+        </div>
+      } @else {
+
+        <!-- Data Management Section -->
+        <mat-expansion-panel class="settings-panel">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <mat-icon>storage</mat-icon>
+              <span>Data Management</span>
+            </mat-panel-title>
+            <mat-panel-description>
+              Backup & Restore Database
+            </mat-panel-description>
+          </mat-expansion-panel-header>
+
+          <div class="panel-content">
+            <p class="helper-text">Backup & Restore your inventory data</p>
+
+            <div class="data-action">
+              <div class="action-info">
+                <mat-icon>archive</mat-icon>
+                <div>
+                  <strong>Full Database Backup</strong>
+                  <p>Export entire database as JSON backup file (all tables, all users)</p>
+                  <small style="color: #ff9800; display: block; margin-top: 4px;">⚠️ Does not include images</small>
+                </div>
+              </div>
+              <button mat-raised-button color="primary" (click)="exportSQLiteDatabase()">
+                <mat-icon>cloud_download</mat-icon>
+                Backup Database
               </button>
-              <button mat-raised-button color="warn" (click)="clearOpenaiApiKey()" *ngIf="apiConfigService.hasOpenaiApiKey()">
-                <mat-icon>delete</mat-icon>
-                Remove
+            </div>
+
+            <mat-divider></mat-divider>
+
+            <div class="data-action">
+              <div class="action-info">
+                <mat-icon>unarchive</mat-icon>
+                <div>
+                  <strong>Restore Database</strong>
+                  <p>Import database from JSON backup file</p>
+                  <small style="color: #f44336; display: block; margin-top: 4px;">⚠️ This will REPLACE all existing data!</small>
+                </div>
+              </div>
+              <button mat-raised-button color="warn" (click)="importSQLiteDatabase()">
+                <mat-icon>cloud_upload</mat-icon>
+                Restore Backup
               </button>
             </div>
           </div>
-        </div>
-      </div>
+        </mat-expansion-panel>
 
-      <div class="api-info-box">
-        <p><strong>How to get an OpenAI API key:</strong></p>
-        <ol>
-          <li>Go to <a href="https://platform.openai.com/account/api-keys" target="_blank">platform.openai.com/account/api-keys</a></li>
-          <li>Sign in or create a free account</li>
-          <li>Click "Create new secret key"</li>
-          <li>Copy the key and paste it here</li>
-        </ol>
-        <p style="font-size: 12px; color: #999;">Note: OpenAI charges for API usage. Monitor your usage at <a href="https://platform.openai.com/account/billing/overview" target="_blank">platform.openai.com/account/billing</a></p>
-      </div>
-    </div>
-  </mat-expansion-panel>
+        <!-- Database Browser Section -->
+        <mat-expansion-panel class="settings-panel">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <mat-icon>table_view</mat-icon>
+              <span>Database Browser</span>
+            </mat-panel-title>
+            <mat-panel-description>
+              View & Edit Raw Data
+            </mat-panel-description>
+          </mat-expansion-panel-header>
 
-  <!-- Data Management Section (PIN Protected) -->
-  <mat-expansion-panel class="settings-panel" [disabled]="isPinSet && !isAdminUnlocked">
-    <mat-expansion-panel-header>
-      <mat-panel-title>
-        <mat-icon>storage</mat-icon>
-        <span>Data Management</span>
-        <mat-icon *ngIf="isPinSet && !isAdminUnlocked" style="margin-left: 0.5rem; font-size: 18px; width: 18px; height: 18px; color: #ff9800;">lock</mat-icon>
-      </mat-panel-title>
-      <mat-panel-description>
-        Backup & Restore Database
-      </mat-panel-description>
-    </mat-expansion-panel-header>
-    
-    <div class="panel-content">
-      <p class="helper-text">Backup & Restore your inventory data</p>
-
-      <div class="data-action">
-        <div class="action-info">
-          <mat-icon>archive</mat-icon>
-          <div>
-            <strong>Full Database Backup</strong>
-            <p>Export entire database as JSON backup file (all tables, all users)</p>
-            <small style="color: #ff9800; display: block; margin-top: 4px;">⚠️ Does not include images</small>
+          <div class="panel-content">
+            <p class="helper-text">View and edit raw database tables</p>
+            <app-data-browser></app-data-browser>
           </div>
-        </div>
-        <button mat-raised-button color="primary" (click)="exportSQLiteDatabase()">
-          <mat-icon>cloud_download</mat-icon>
-          Backup Database
-        </button>
-      </div>
+        </mat-expansion-panel>
 
-      <mat-divider></mat-divider>
+        <!-- Image Storage Section -->
+        <mat-expansion-panel class="settings-panel">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <mat-icon>photo_library</mat-icon>
+              <span>Image Storage</span>
+            </mat-panel-title>
+            <mat-panel-description>
+              Manage Stored Images
+            </mat-panel-description>
+          </mat-expansion-panel-header>
 
-      <div class="data-action">
-        <div class="action-info">
-          <mat-icon>unarchive</mat-icon>
-          <div>
-            <strong>Restore Database</strong>
-            <p>Import database from JSON backup file</p>
-            <small style="color: #f44336; display: block; margin-top: 4px;">⚠️ This will REPLACE all existing data!</small>
+          <div class="panel-content">
+            <p class="helper-text">View and delete images stored in the app</p>
+            <app-image-storage-browser></app-image-storage-browser>
           </div>
-        </div>
-        <button mat-raised-button color="warn" (click)="importSQLiteDatabase()">
-          <mat-icon>cloud_upload</mat-icon>
-          Restore Backup
-        </button>
-      </div>
-    </div>
-  </mat-expansion-panel>
+        </mat-expansion-panel>
 
-  <!-- Database Browser Section (PIN Protected) -->
-  <mat-expansion-panel class="settings-panel" [disabled]="isPinSet && !isAdminUnlocked">
-    <mat-expansion-panel-header>
-      <mat-panel-title>
-        <mat-icon>table_view</mat-icon>
-        <span>Database Browser</span>
-        <mat-icon *ngIf="isPinSet && !isAdminUnlocked" style="margin-left: 0.5rem; font-size: 18px; width: 18px; height: 18px; color: #ff9800;">lock</mat-icon>
-      </mat-panel-title>
-      <mat-panel-description>
-        View & Edit Raw Data
-      </mat-panel-description>
-    </mat-expansion-panel-header>
-    
-    <div class="panel-content">
-      <p class="helper-text">View and edit raw database tables</p>
-      <app-data-browser *ngIf="!isPinSet || isAdminUnlocked"></app-data-browser>
-      <div *ngIf="isPinSet && !isAdminUnlocked" class="locked-section">
-        <mat-icon>lock</mat-icon>
-        <p>This section is PIN protected</p>
-        <button mat-raised-button color="primary" (click)="unlockAdminSections()">
-          <mat-icon>lock_open</mat-icon>
-          Unlock with PIN
-        </button>
-      </div>
-    </div>
-  </mat-expansion-panel>
+        <!-- Console Logs Section -->
+        <mat-expansion-panel class="settings-panel">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <mat-icon>terminal</mat-icon>
+              <span>Console Logs</span>
+            </mat-panel-title>
+            <mat-panel-description>
+              View App Logs & Debug Info
+            </mat-panel-description>
+          </mat-expansion-panel-header>
 
-  <!-- Image Storage Section (PIN Protected) -->
-  <mat-expansion-panel class="settings-panel" [disabled]="isPinSet && !isAdminUnlocked">
-    <mat-expansion-panel-header>
-      <mat-panel-title>
-        <mat-icon>photo_library</mat-icon>
-        <span>Image Storage</span>
-        <mat-icon *ngIf="isPinSet && !isAdminUnlocked" style="margin-left: 0.5rem; font-size: 18px; width: 18px; height: 18px; color: #ff9800;">lock</mat-icon>
-      </mat-panel-title>
-      <mat-panel-description>
-        Manage Stored Images
-      </mat-panel-description>
-    </mat-expansion-panel-header>
-    
-    <div class="panel-content">
-      <p class="helper-text">View and delete images stored in the app</p>
-      <app-image-storage-browser *ngIf="!isPinSet || isAdminUnlocked"></app-image-storage-browser>
-      <div *ngIf="isPinSet && !isAdminUnlocked" class="locked-section">
-        <mat-icon>lock</mat-icon>
-        <p>This section is PIN protected</p>
-        <button mat-raised-button color="primary" (click)="unlockAdminSections()">
-          <mat-icon>lock_open</mat-icon>
-          Unlock with PIN
-        </button>
-      </div>
-    </div>
-  </mat-expansion-panel>
+          <div class="panel-content">
+            <p class="helper-text">View real-time console logs from the app (latest 200 entries)</p>
+            <app-console-viewer></app-console-viewer>
+          </div>
+        </mat-expansion-panel>
 
-  <!-- Console Logs Section (PIN Protected) -->
-  <mat-expansion-panel class="settings-panel" [disabled]="isPinSet && !isAdminUnlocked">
-    <mat-expansion-panel-header>
-      <mat-panel-title>
-        <mat-icon>terminal</mat-icon>
-        <span>Console Logs</span>
-        <mat-icon *ngIf="isPinSet && !isAdminUnlocked" style="margin-left: 0.5rem; font-size: 18px; width: 18px; height: 18px; color: #ff9800;">lock</mat-icon>
-      </mat-panel-title>
-      <mat-panel-description>
-        View App Logs & Debug Info
-      </mat-panel-description>
-    </mat-expansion-panel-header>
-    
-    <div class="panel-content">
-      <p class="helper-text">View real-time console logs from the app (latest 200 entries)</p>
-      <app-console-viewer *ngIf="!isPinSet || isAdminUnlocked"></app-console-viewer>
-      <div *ngIf="isPinSet && !isAdminUnlocked" class="locked-section">
-        <mat-icon>lock</mat-icon>
-        <p>This section is PIN protected</p>
-        <button mat-raised-button color="primary" (click)="unlockAdminSections()">
-          <mat-icon>lock_open</mat-icon>
-          Unlock with PIN
-        </button>
-      </div>
-    </div>
-  </mat-expansion-panel>
+      }
+
+    </mat-tab>
+
+  </mat-tab-group>
 </div>

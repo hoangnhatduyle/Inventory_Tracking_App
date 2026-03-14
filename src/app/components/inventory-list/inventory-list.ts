@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -17,6 +17,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialog, MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { InventoryService } from '../../services/inventory.service';
 import { AuthService } from '../../services/auth.service';
@@ -49,7 +50,8 @@ import { ViewBatchesDialogComponent } from './view-batches-dialog.component';
     MatSnackBarModule,
     MatDialogModule,
     MatProgressBarModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatPaginatorModule
   ],
   templateUrl: './inventory-list.html',
   styleUrl: './inventory-list.scss',
@@ -80,6 +82,21 @@ export class InventoryList implements OnInit, OnDestroy {
 
   // Table columns
   displayedColumns: string[] = ['select', 'image', 'name', 'category', 'quantity', 'location', 'expiration', 'status', 'actions'];
+
+  // Pagination
+  @ViewChild(MatPaginator) paginator!: MatPaginator;
+  pageSize = 20;
+  pageIndex = 0;
+
+  get pagedItems(): InventoryItem[] {
+    const start = this.pageIndex * this.pageSize;
+    return this.filteredItems.slice(start, start + this.pageSize);
+  }
+
+  onPageChange(event: PageEvent) {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+  }
 
   // Loading state
   isLoading = false;
@@ -234,6 +251,8 @@ export class InventoryList implements OnInit, OnDestroy {
     });
 
     this.filteredItems = filtered;
+    this.pageIndex = 0;
+    if (this.paginator) this.paginator.firstPage();
   }
 
   /** Parse date string (YYYY-MM-DD) as local date to avoid timezone issues */
@@ -307,12 +326,12 @@ export class InventoryList implements OnInit, OnDestroy {
 
   getGroupedItems(): { [key: string]: InventoryItem[] } {
     if (this.groupBy === 'none') {
-      return { 'all': this.filteredItems };
+      return { 'all': this.pagedItems };
     }
 
     const grouped: { [key: string]: InventoryItem[] } = {};
 
-    this.filteredItems.forEach(item => {
+    this.pagedItems.forEach(item => {
       let key: string;
       if (this.groupBy === 'category') {
         key = this.getCategoryName(item.categoryId);
@@ -418,6 +437,10 @@ export class InventoryList implements OnInit, OnDestroy {
 
   onAddItem() {
     this.router.navigate(['/item/add']);
+  }
+
+  onScanReceipt() {
+    this.router.navigate(['/receipt-scan']);
   }
 
   onEditItem(item: InventoryItem) {

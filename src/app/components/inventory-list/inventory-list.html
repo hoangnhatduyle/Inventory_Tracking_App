@@ -60,12 +60,19 @@
           }
         </mat-form-field>
 
-        <button mat-raised-button 
-                (click)="onScanBarcodeSearch()" 
+        <button mat-raised-button
+                (click)="onScanBarcodeSearch()"
                 [disabled]="isScanning"
                 class="action-btn">
           <mat-icon>qr_code_scanner</mat-icon>
           {{ isScanning ? 'Scanning...' : 'Scan' }}
+        </button>
+
+        <button mat-raised-button color="accent"
+                (click)="onScanReceipt()"
+                class="action-btn">
+          <mat-icon>receipt_long</mat-icon>
+          Receipt
         </button>
       </div>
 
@@ -434,5 +441,17 @@
     </div>
     }
   </div>
+  }
+
+  <!-- Paginator -->
+  @if (filteredItems.length > pageSize) {
+  <mat-paginator
+    [length]="filteredItems.length"
+    [pageSize]="pageSize"
+    [pageSizeOptions]="[10, 20, 50, 100]"
+    [pageIndex]="pageIndex"
+    (page)="onPageChange($event)"
+    aria-label="Select page">
+  </mat-paginator>
   }
 </div>

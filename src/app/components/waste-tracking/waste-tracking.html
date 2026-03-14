@@ -109,7 +109,7 @@
     <!-- Wasted Items List -->
     @if (filteredItems.length > 0) {
       <div class="waste-list">
-        @for (item of filteredItems; track item.id) {
+        @for (item of pagedItems; track item.id) {
           <mat-card class="waste-item">
             <mat-card-content>
               <div class="item-main">
@@ -149,6 +149,16 @@
           </mat-card>
         }
       </div>
+      @if (filteredItems.length > pageSize) {
+        <mat-paginator
+          [length]="filteredItems.length"
+          [pageSize]="pageSize"
+          [pageSizeOptions]="[10, 20, 50, 100]"
+          [pageIndex]="pageIndex"
+          (page)="onPageChange($event)"
+          aria-label="Select page">
+        </mat-paginator>
+      }
     } @else {
       <mat-card class="empty-state">
         <mat-icon>check_circle</mat-icon>

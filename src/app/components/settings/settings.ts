@@ -14,6 +14,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatTabsModule } from '@angular/material/tabs';
 import { AuthService } from '../../services/auth.service';
 import { InventoryService } from '../../services/inventory.service';
 import { StatisticsService } from '../../services/statistics.service';
@@ -50,6 +51,7 @@ import { Capacitor } from '@capacitor/core';
     MatDividerModule,
     MatExpansionModule,
     MatTooltipModule,
+    MatTabsModule,
     DataBrowserComponent,
     ConsoleViewerComponent,
     ImageStorageBrowserComponent
@@ -225,7 +227,7 @@ export class Settings implements OnInit {
       const fileName = `chatciu_backup_${new Date().toISOString().slice(0, 10)}.json`;
 
       if (Capacitor.isNativePlatform()) {
-        await Filesystem.writeFile({ path: fileName, data: jsonData, directory: Directory.Cache });
+        await Filesystem.writeFile({ path: fileName, data: jsonData, directory: Directory.Cache, encoding: Encoding.UTF8 });
         const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
         await Share.share({ title: 'Database Backup', url: uri, dialogTitle: 'Save backup file' });
       } else {

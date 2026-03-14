@@ -7,7 +7,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTabsModule } from '@angular/material/tabs';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../services/auth.service';
@@ -22,7 +21,6 @@ import { AuthService } from '../../services/auth.service';
     MatInputModule,
     MatButtonModule,
     MatTabsModule,
-    MatCheckboxModule,
     MatIconModule,
     MatSnackBarModule
   ],
@@ -42,7 +40,6 @@ export class Login {
 
   isLoading = false;
   viewMode: 'login' | 'register' = 'login';
-  rememberMe = false;
 
   constructor(
     private authService: AuthService,

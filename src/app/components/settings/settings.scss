@@ -21,6 +21,37 @@
   }
 }
 
+.settings-tab-group {
+  margin-top: 0.5rem;
+
+  .mat-mdc-tab-body-content {
+    padding-top: 1rem;
+  }
+}
+
+.admin-locked-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+  gap: 1rem;
+
+  mat-icon {
+    font-size: 3rem;
+    width: 3rem;
+    height: 3rem;
+    color: rgba(0, 0, 0, 0.3);
+  }
+
+  p {
+    margin: 0;
+    font-size: 1rem;
+    color: rgba(0, 0, 0, 0.54);
+  }
+}
+
 .settings-panel {
   margin-bottom: 1rem;
   border-radius: 8px;
