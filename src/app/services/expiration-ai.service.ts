@@ -14,7 +14,7 @@ export interface AIExpirationSuggestion {
 export class ExpirationAIService {
   private readonly OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
   private readonly MONTHLY_LIMIT = 1000;
-  private readonly MODEL = 'gpt-4.1-mini'; // Cost-efficient model
+  private readonly MODEL = 'gpt-5-mini'; // Cost-efficient model
 
   constructor(
     private databaseService: DatabaseService,

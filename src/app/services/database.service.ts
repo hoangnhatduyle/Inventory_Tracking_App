@@ -690,9 +690,9 @@ export class DatabaseService {
       } else {
         // Handle multiple conditions with AND: WHERE field1 = ? AND field2 = ?
         const conditions = whereClause.split(/\s+AND\s+/i);
-        let paramIndex = 0;
 
         results = results.filter((row: any) => {
+          let paramIndex = 0;
           return conditions.every((condition) => {
             const match = condition.match(/(\w+)\s*=\s*\?/i);
             if (match) {
