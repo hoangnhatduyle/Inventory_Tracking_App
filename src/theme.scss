@@ -1,0 +1,113 @@
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+// Food-themed color palette using Material 3 format
+$light-theme: mat.define-theme((
+  color: (
+    theme-type: light,
+    primary: mat.$green-palette,  // Fresh, food-themed green
+    tertiary: mat.$orange-palette,  // Warm, appetizing orange
+  ),
+  typography: (
+    brand-family: 'Roboto, sans-serif',
+    plain-family: 'Roboto, sans-serif',
+  ),
+  density: (
+    scale: 0,
+  ),
+));
+
+// Apply light theme
+html {
+  @include mat.all-component-themes($light-theme);
+  
+  // CSS variables for food theme colors
+  --primary-color: #4caf50;
+  --primary-light: #81c784;
+  --primary-dark: #388e3c;
+  --accent-color: #ff9800;
+  --accent-light: #ffb74d;
+  --accent-dark: #f57c00;
+  --warn-color: #f44336;
+  
+  // Background colors - soft, clean, appetizing
+  --background-main: #fafafa;
+  --background-card: #ffffff;
+  --background-hover: rgba(76, 175, 80, 0.08);
+  
+  // Text colors
+  --text-primary: rgba(0, 0, 0, 0.87);
+  --text-secondary: rgba(0, 0, 0, 0.6);
+  --text-disabled: rgba(0, 0, 0, 0.38);
+  
+  // Enhanced card styling
+  .mat-mdc-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+    
+    &:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+    }
+  }
+}
+
+// Custom background colors
+body {
+  background-color: var(--background-main);
+  color: var(--text-primary);
+  font-family: 'Roboto', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+// Global Material Design overrides for food theme
+.mat-mdc-raised-button.mat-primary {
+  background-color: var(--primary-color) !important;
+  color: white !important;
+}
+
+.mat-mdc-raised-button.mat-accent {
+  background-color: var(--accent-color) !important;
+  color: rgba(0, 0, 0, 0.87) !important;
+}
+
+.mat-mdc-fab.mat-primary {
+  background-color: var(--primary-color) !important;
+  color: white !important;
+}
+
+// Warm food-themed gradients
+.food-gradient {
+  background: linear-gradient(135deg, #4caf50 0%, #66bb6a 50%, #ff9800 100%);
+}
+
+// Custom scrollbar with food theme
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background-main);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary-color);
+  border-radius: 4px;
+  
+  &:hover {
+    background: var(--primary-dark);
+  }
+}
+
+// Selection color with food theme
+::selection {
+  background-color: rgba(76, 175, 80, 0.3);
+  color: var(--text-primary);
+}
+
+::-moz-selection {
+  background-color: rgba(76, 175, 80, 0.3);
+  color: var(--text-primary);
+}

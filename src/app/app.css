@@ -1,0 +1,60 @@
+.app-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.app-logo {
+  height: 50px;
+  width: 50px;
+  margin-left: 8px;
+  margin-right: 8px;
+}
+
+.app-title {
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.drawer-container {
+  flex: 1;
+  overflow: hidden;
+}
+
+.padding-horizontal {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.app-sidenav {
+  width: 250px;
+}
+
+.main-content {
+  padding: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  height: 100%;
+}
+
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+mat-nav-list a.active {
+  background-color: rgba(76, 175, 80, 0.12);
+}

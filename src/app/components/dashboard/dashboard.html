@@ -1,0 +1,473 @@
+<div class="dashboard-container">
+  <!-- Loading Spinner -->
+  @if (isLoading) {
+  <div class="loading-overlay">
+    <div class="loading-content">
+      <mat-spinner diameter="60"></mat-spinner>
+      <p>Loading dashboard...</p>
+    </div>
+  </div>
+  }
+
+  <!-- Header -->
+  <div class="dashboard-header animate-fade-in">
+    <div class="greeting">
+      <h1>{{ getGreeting() }}, {{ username }}! 👋</h1>
+      <p class="subtitle">Here's your inventory overview</p>
+    </div>
+
+    <!-- View Toggle -->
+    <mat-button-toggle-group [(value)]="viewMode" (change)="toggleViewMode()" class="view-toggle">
+      <mat-button-toggle value="board">
+        <mat-icon>view_module</mat-icon>
+        Board View
+      </mat-button-toggle>
+      <mat-button-toggle value="stats">
+        <mat-icon>analytics</mat-icon>
+        Stats View
+      </mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="quick-actions animate-slide-up">
+    <button mat-raised-button color="primary" (click)="navigateToAddItem()" class="action-btn">
+      <mat-icon>add</mat-icon>
+      Add Item
+    </button>
+    <button mat-raised-button (click)="navigateToInventory()" class="action-btn">
+      <mat-icon>inventory_2</mat-icon>
+      View All
+    </button>
+    <button mat-raised-button (click)="navigateToShoppingList()" class="action-btn">
+      <mat-icon>shopping_cart</mat-icon>
+      Shopping List
+    </button>
+  </div>
+
+  <!-- Board View -->
+  @if (viewMode === 'board') {
+  <div class="board-view-container animate-fade-in">
+    @if (hasLocations()) {
+    <div class="board-view-grid stagger-animation">
+      @for (location of itemsByLocation | keyvalue; track location.key) {
+      <mat-card class="location-card hover-lift">
+        <mat-card-header>
+          <div class="location-header">
+            <mat-icon class="location-icon">{{ getLocationIcon(location.key) }}</mat-icon>
+            <mat-card-title>{{ location.key }}</mat-card-title>
+            <span class="item-count">{{ location.value.length }}</span>
+          </div>
+        </mat-card-header>
+        <mat-card-content>
+          @if (location.value.length > 0) {
+          <ul class="board-item-list">
+            @for (item of location.value; track item.id) {
+            <li class="board-item" (click)="onViewItem(item)">
+              <div class="item-content">
+                @if (getItemStatusIcon(item)) {
+                <mat-icon class="status-icon {{ getItemStatus(item) }}">
+                  {{ getItemStatusIcon(item) }}
+                </mat-icon>
+                }
+                <div class="item-name-container">
+                  <span class="item-name">{{ item.name }}</span>
+                  @if (item.initialQuantity && item.currentQuantity !== undefined) {
+                  <div class="inline-progress-bar">
+                    <div class="progress-fill" [style.width.%]="getItemPercentage(item)"
+                      [class.critical]="getItemPercentage(item) <= 10"
+                      [class.warning]="getItemPercentage(item) > 10 && getItemPercentage(item) <= 20"
+                      [class.good]="getItemPercentage(item) > 20">
+                    </div>
+                  </div>
+                  <span class="percentage-badge" [class.critical]="getItemPercentage(item) <= 10"
+                    [class.warning]="getItemPercentage(item) > 10 && getItemPercentage(item) <= 20"
+                    [class.good]="getItemPercentage(item) > 20">
+                    {{ getItemPercentage(item) | number:'1.0-0' }}%
+                  </span>
+                  }
+                </div>
+                @if (item.quantity !== undefined && item.quantity !== null) {
+                <span class="item-quantity">{{ item.quantity }}</span>
+                }
+              </div>
+              @if (item.expirationDate) {
+              <span class="expiry-date">{{ item.expirationDate | date: 'MMM d' }}</span>
+              }
+            </li>
+            }
+          </ul>
+          }
+          @if (location.value.length === 0) {
+          <p class="empty-location">No items</p>
+          }
+        </mat-card-content>
+      </mat-card>
+      }
+    </div>
+    }
+    @if (!hasLocations()) {
+    <mat-card class="empty-board">
+      <mat-card-content>
+        <mat-icon>view_module</mat-icon>
+        <h2>No items yet</h2>
+        <p>Start adding items to see them organized by location</p>
+        <button mat-raised-button color="primary" (click)="navigateToAddItem()">
+          <mat-icon>add</mat-icon>
+          Add First Item
+        </button>
+      </mat-card-content>
+    </mat-card>
+    }
+  </div>
+  }
+
+  <!-- Statistics Cards -->
+  @if (viewMode === 'stats' && statistics) {
+  <div class="stats-grid stagger-animation">
+    <!-- Total Items -->
+    <mat-card class="stat-card primary-card hover-lift">
+      <mat-card-content>
+        <div class="stat-icon">
+          <mat-icon>inventory_2</mat-icon>
+        </div>
+        <div class="stat-info">
+          <h2>{{ statistics.totalItems }}</h2>
+          <p>Total Items</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Expiring Soon -->
+    <mat-card class="stat-card warning-card hover-lift" [class.clickable]="statistics.expiringSoon > 0"
+      (click)="statistics.expiringSoon > 0 && navigateToInventory()">
+      <mat-card-content>
+        <div class="stat-icon">
+          <mat-icon>schedule</mat-icon>
+        </div>
+        <div class="stat-info">
+          <h2>{{ statistics.expiringSoon }}</h2>
+          <p>Expiring Soon</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Expired -->
+    <mat-card class="stat-card danger-card hover-lift" [class.clickable]="statistics.expired > 0"
+      (click)="statistics.expired > 0 && navigateToInventory()">
+      <mat-card-content>
+        <div class="stat-icon">
+          <mat-icon>error</mat-icon>
+        </div>
+        <div class="stat-info">
+          <h2>{{ statistics.expired }}</h2>
+          <p>Expired</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Total Value -->
+    <mat-card class="stat-card success-card hover-lift">
+      <mat-card-content>
+        <div class="stat-icon">
+          <mat-icon>attach_money</mat-icon>
+        </div>
+        <div class="stat-info">
+          <h2>${{ statistics.totalValue.toFixed(2) }}</h2>
+          <p>Total Value</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+  }
+
+
+
+  <!-- Running Low Section -->
+  @if (!isLoadingLowStock && lowStockItems.length > 0) {
+  <div class="low-stock-section animate-fade-slide">
+
+    <!-- Low Stock Loading -->
+    @if (isLoadingLowStock) {
+    <div class="low-stock-loading">
+      <mat-card>
+        <mat-card-content>
+          <div class="skeleton-loader">
+            <mat-spinner diameter="40"></mat-spinner>
+            <p>Checking for low stock items...</p>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+    }
+    <mat-card class="low-stock-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>trending_down</mat-icon>
+          Running Low ({{ lowStockItems.length }})
+        </mat-card-title>
+        <button mat-button (click)="toggleLowStockDetails()" class="view-details-btn">
+          <mat-icon>{{ showLowStockDetails ? 'expand_less' : 'expand_more' }}</mat-icon>
+          {{ showLowStockDetails ? 'Hide Details' : 'View Details' }}
+        </button>
+      </mat-card-header>
+      @if (showLowStockDetails) {
+      <mat-card-content>
+        <div class="low-stock-list">
+          @for (lowStock of lowStockItems; track lowStock.item.id) {
+          <div class="low-stock-item hover-lift" (click)="onViewItem(lowStock.item)">
+            <div class="item-header">
+              <div class="item-name">
+                <mat-icon>inventory_2</mat-icon>
+                <span>{{ lowStock.item.name }}</span>
+              </div>
+              <span class="percentage-badge" [class.critical]="lowStock.percentage <= 10"
+                [class.warning]="lowStock.percentage > 10">
+                {{ lowStock.percentage | number:'1.0-0' }}%
+              </span>
+            </div>
+
+            <div class="item-details">
+              <div class="detail-row">
+                <mat-icon class="detail-icon">inventory</mat-icon>
+                <span>{{ lowStock.item.currentQuantity }} / {{ lowStock.item.initialQuantity }} {{ lowStock.item.unit
+                  }}</span>
+              </div>
+
+              @if (lowStock.consumptionRate !== null) {
+              <div class="detail-row">
+                <mat-icon class="detail-icon">speed</mat-icon>
+                <span>{{ lowStock.consumptionRate | number:'1.1-2' }} {{ lowStock.item.unit }}/day</span>
+              </div>
+              }
+
+              @if (lowStock.predictedRunOutDate) {
+              <div class="detail-row">
+                <mat-icon class="detail-icon">event</mat-icon>
+                <span>
+                  Runs out in {{ getDaysUntilRunOut(lowStock.predictedRunOutDate) }} days
+                  ({{ lowStock.predictedRunOutDate | date:'MMM d' }})
+                </span>
+              </div>
+              }
+
+              @if (!lowStock.consumptionRate && !lowStock.predictedRunOutDate) {
+              <div class="detail-row">
+                <mat-icon class="detail-icon">info</mat-icon>
+                <span class="no-prediction">Track usage to see predictions</span>
+              </div>
+              }
+            </div>
+
+            <div class="progress-bar-container">
+              <div class="progress-bar" [style.width.%]="lowStock.percentage"
+                [class.critical]="lowStock.percentage <= 10" [class.warning]="lowStock.percentage > 10">
+              </div>
+            </div>
+          </div>
+          }
+        </div>
+      </mat-card-content>
+      }
+    </mat-card>
+  </div>
+  }
+
+  <!-- Main Content Grid -->
+  @if (viewMode === 'stats' && statistics && statistics.totalItems > 0) {
+  <div class="content-grid">
+    <!-- Category Breakdown -->
+    <mat-card class="breakdown-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>category</mat-icon>
+          Categories
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        @if (statistics.categoryBreakdown.length > 0) {
+        <div class="breakdown-list">
+          @for (category of statistics.categoryBreakdown; track category.categoryName) {
+          <div class="breakdown-item">
+            <div class="breakdown-info">
+              <span class="breakdown-name">{{ category.categoryName }}</span>
+              <span class="breakdown-count">{{ category.count }} items</span>
+            </div>
+            <div class="breakdown-bar">
+              <div class="bar-fill" [style.width.%]="(category.count / statistics!.totalItems) * 100">
+              </div>
+            </div>
+          </div>
+          }
+        </div>
+        }
+        @if (statistics.categoryBreakdown.length === 0) {
+        <p class="no-data">No categories yet</p>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Location Breakdown -->
+    <mat-card class="breakdown-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>location_on</mat-icon>
+          Storage Locations
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        @if (statistics.locationBreakdown.length > 0) {
+        <div class="breakdown-list">
+          @for (location of statistics.locationBreakdown; track location.locationName) {
+          <div class="breakdown-item">
+            <div class="breakdown-info">
+              <span class="breakdown-name">{{ location.locationName }}</span>
+              <span class="breakdown-count">{{ location.count }} items</span>
+            </div>
+            <div class="breakdown-bar">
+              <div class="bar-fill" [style.width.%]="(location.count / statistics!.totalItems) * 100">
+              </div>
+            </div>
+          </div>
+          }
+        </div>
+        }
+        @if (statistics.locationBreakdown.length === 0) {
+        <p class="no-data">No locations set up</p>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Recent Items -->
+    <mat-card class="recent-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>history</mat-icon>
+          Recently Added
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        @if (recentItems.length > 0) {
+        <mat-list>
+          @for (item of recentItems; track item.id) {
+          <mat-list-item (click)="onViewItem(item)" class="recent-item">
+            <mat-icon matListItemIcon>inventory_2</mat-icon>
+            <div matListItemTitle>{{ item.name }}</div>
+            <div matListItemLine>
+              {{ getCategoryName(item.categoryId) }} • {{ item.quantity }} {{ item.unit }}
+              @if (item.expirationDate) {
+              <span class="expiration-info">
+                • Expires {{ item.expirationDate | date:'shortDate' }}
+              </span>
+              }
+            </div>
+            <mat-icon matListItemMeta>chevron_right</mat-icon>
+          </mat-list-item>
+          }
+        </mat-list>
+        }
+        @if (recentItems.length === 0) {
+        <p class="no-data">No recent items</p>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Waste Tracking -->
+    @if (statistics.wastedItems && statistics.wastedItems.length > 0) {
+    <mat-card class="waste-card clickable" (click)="navigateToWasteTracking()">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>delete_sweep</mat-icon>
+          Waste Tracking
+        </mat-card-title>
+        <mat-icon class="arrow-icon">chevron_right</mat-icon>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="waste-summary">
+          <div class="waste-stat">
+            <span class="waste-number">{{ getTotalWastedCount() }}</span>
+            <span class="waste-label">Items Wasted</span>
+          </div>
+          <div class="waste-stat">
+            <span class="waste-number">
+              ${{ getTotalWastedValue() }}
+            </span>
+            <span class="waste-label">Value Lost</span>
+          </div>
+        </div>
+        <p class="waste-tip">
+          <mat-icon>lightbulb</mat-icon>
+          Tip: Check expiring items regularly to reduce waste
+        </p>
+      </mat-card-content>
+    </mat-card>
+    }
+
+    <!-- Recipe Suggestions -->
+    @if (recipes.length > 0) {
+    <mat-card class="recipe-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>restaurant</mat-icon>
+          Recipe Suggestions
+        </mat-card-title>
+        <mat-card-subtitle>Based on your inventory</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="recipe-list">
+          @for (recipe of recipes; track recipe.id) {
+          <div class="recipe-item">
+            <div class="recipe-header">
+              <h4>{{ recipe.name }}</h4>
+              <mat-chip class="match-chip">{{ recipe.matchCount }}/{{ recipe.ingredientsList?.length }}
+                ingredients</mat-chip>
+            </div>
+            <p class="recipe-description">{{ recipe.prepTime }} • {{ recipe.servings }} servings</p>
+            <div class="recipe-ingredients">
+              <mat-chip-set>
+                @for (ingredient of recipe.ingredientsList; track ingredient) {
+                <mat-chip [class.available]="recipe.matchingItems!.includes(ingredient)">
+                  {{ ingredient }}
+                </mat-chip>
+                }
+              </mat-chip-set>
+            </div>
+          </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+    }
+
+    <!-- Quick Actions Card -->
+    <mat-card class="actions-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>bolt</mat-icon>
+          Quick Actions
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="action-list">
+          <button mat-stroked-button (click)="navigateToInventory()" class="action-item">
+            <mat-icon>inventory_2</mat-icon>
+            <span>View All Items</span>
+          </button>
+          <button mat-stroked-button (click)="navigateToAddItem()" class="action-item">
+            <mat-icon>add_circle</mat-icon>
+            <span>Add New Item</span>
+          </button>
+          <button mat-stroked-button (click)="navigateToShoppingList()" class="action-item">
+            <mat-icon>shopping_cart</mat-icon>
+            <span>Shopping List</span>
+          </button>
+          <button mat-stroked-button (click)="navigateToSettings()" class="action-item">
+            <mat-icon>settings</mat-icon>
+            <span>Settings</span>
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+  }
+</div>

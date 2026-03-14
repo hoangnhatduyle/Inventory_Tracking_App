@@ -1,0 +1,148 @@
+<div class="usage-dialog animate-scale-in">
+  <div class="dialog-header">
+    <h2 mat-dialog-title>
+      <mat-icon>timeline</mat-icon>
+      Update Usage: {{ item.name }}
+    </h2>
+  </div>
+
+  <mat-dialog-content>
+    <!-- Current Status -->
+    <div class="status-section">
+      <div class="status-info">
+        <span class="status-label">Current Status</span>
+        <span class="status-value">{{ currentQuantity | number:'1.0-2' }} / {{ initialQuantity | number:'1.0-2' }} {{ item.unit }}</span>
+      </div>
+      
+      <div class="percentage-display" [class.low]="percentageRemaining <= 20" [class.medium]="percentageRemaining > 20 && percentageRemaining <= 50">
+        <span class="percentage-value">{{ percentageRemaining | number:'1.0-1' }}%</span>
+        <span class="percentage-label">remaining</span>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-section">
+      <mat-progress-bar 
+        mode="determinate" 
+        [value]="percentageRemaining"
+        [color]="getProgressBarColor()">
+      </mat-progress-bar>
+    </div>
+
+    <!-- Slider Control -->
+    <div class="slider-section">
+      <label class="section-label">
+        <mat-icon>tune</mat-icon>
+        Adjust remaining amount
+      </label>
+      <mat-slider 
+        min="0" 
+        max="100" 
+        step="1"
+        [displayWith]="formatLabel"
+        class="usage-slider">
+        <input matSliderThumb [(ngModel)]="percentageRemaining" (ngModelChange)="onSliderChange($event)">
+      </mat-slider>
+    </div>
+
+    <!-- Manual Input Fields -->
+    <div class="input-section">
+      <mat-form-field appearance="outline" class="quantity-field">
+        <mat-label>Current Quantity</mat-label>
+        <input 
+          matInput 
+          type="number" 
+          [(ngModel)]="currentQuantity" 
+          (ngModelChange)="onCurrentQuantityChange()"
+          min="0"
+          [max]="initialQuantity"
+          step="0.1">
+        <span matTextSuffix>&nbsp;&nbsp;{{ item.unit }}</span>
+        <mat-icon matPrefix>inventory_2</mat-icon>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="quantity-field">
+        <mat-label>Amount Used</mat-label>
+        <input 
+          matInput 
+          type="number" 
+          [(ngModel)]="amountToUse" 
+          (ngModelChange)="onAmountUsedChange()"
+          min="0"
+          [max]="initialQuantity"
+          step="0.1">
+        <span matTextSuffix>&nbsp;&nbsp;{{ item.unit }}</span>
+        <mat-icon matPrefix>remove_circle_outline</mat-icon>
+      </mat-form-field>
+    </div>
+
+    <!-- Usage Notes -->
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Usage Notes (Optional)</mat-label>
+      <textarea 
+        matInput 
+        [(ngModel)]="usageNotes"
+        rows="3"
+        placeholder="e.g., Used for dinner, Shared with neighbors...">
+      </textarea>
+      <mat-icon matPrefix>note</mat-icon>
+    </mat-form-field>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+      <button mat-stroked-button (click)="onMarkAsEmpty()" class="empty-btn">
+        <mat-icon>delete_sweep</mat-icon>
+        Mark as Empty
+      </button>
+      
+      @if (isLowStock()) {
+      <button mat-stroked-button color="accent" (click)="onAddToShoppingList()" class="shopping-btn">
+        <mat-icon>shopping_cart</mat-icon>
+        Add to Shopping List
+      </button>
+      }
+    </div>
+    
+    @if (isLowStock()) {
+    <div class="low-stock-alert">
+      <mat-icon>warning</mat-icon>
+      <span>This item is running low! Consider restocking soon.</span>
+    </div>
+    }
+
+    <!-- Usage History -->
+    @if (usageHistory.length > 0) {
+    <div class="history-section">
+      <h3 class="section-label">
+        <mat-icon>history</mat-icon>
+        Usage History
+      </h3>
+      <div class="history-list">
+        @for (record of usageHistory; track record.id) {
+        <div class="history-item">
+          <div class="history-info">
+            <span class="history-date">{{ record.recorded_at | date:'short' }}</span>
+            <span class="history-amount">-{{ record.amount_used | number:'1.0-2' }} {{ item.unit }}</span>
+          </div>
+          <div class="history-remaining">
+            <span class="remaining-label">Remaining:</span>
+            <span class="remaining-value">{{ record.remaining_amount | number:'1.0-2' }} {{ item.unit }}</span>
+          </div>
+          @if (record.notes) {
+          <div class="history-notes">{{ record.notes }}</div>
+          }
+        </div>
+        }
+      </div>
+    </div>
+    }
+  </mat-dialog-content>
+
+  <mat-dialog-actions>
+    <button mat-button (click)="onCancel()">Cancel</button>
+    <button mat-raised-button color="primary" (click)="onSave()">
+      <mat-icon>save</mat-icon>
+      Save Usage
+    </button>
+  </mat-dialog-actions>
+</div>

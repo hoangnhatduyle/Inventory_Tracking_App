@@ -1,0 +1,185 @@
+<div class="waste-tracking-container">
+  <!-- Header -->
+  <div class="waste-header">
+    <h1>
+      <mat-icon>delete_sweep</mat-icon>
+      Waste Tracking
+    </h1>
+    <p class="subtitle">Monitor and reduce food waste</p>
+  </div>
+
+  @if (loading) {
+    <div class="loading-container">
+      <mat-progress-spinner mode="indeterminate" diameter="50"></mat-progress-spinner>
+      <p>Loading waste data...</p>
+    </div>
+  }
+
+  @if (!loading && statistics) {
+    <!-- Statistics Overview -->
+    <div class="stats-grid">
+      <mat-card class="stat-card total-items">
+        <mat-card-content>
+          <div class="stat-icon">
+            <mat-icon>inventory_2</mat-icon>
+          </div>
+          <div class="stat-info">
+            <h2>{{ statistics.totalItemsWasted }}</h2>
+            <p>Items Wasted</p>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card total-value">
+        <mat-card-content>
+          <div class="stat-icon">
+            <mat-icon>attach_money</mat-icon>
+          </div>
+          <div class="stat-info">
+            <h2>${{ statistics.totalValueLost.toFixed(2) }}</h2>
+            <p>Value Lost</p>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Category Breakdown -->
+    @if (statistics.wasteByCategory.length > 0) {
+      <mat-card class="category-breakdown">
+        <mat-card-header>
+          <mat-card-title>Waste by Category</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="category-list">
+            @for (cat of statistics.wasteByCategory; track cat.categoryId) {
+              <div class="category-item">
+                <div class="category-info">
+                  <mat-icon>{{ getCategoryIcon(cat.categoryName) }}</mat-icon>
+                  <div class="category-details">
+                    <span class="category-name">{{ cat.categoryName }}</span>
+                    <span class="category-count">{{ cat.itemsWasted }} items</span>
+                  </div>
+                </div>
+                <div class="category-value">${{ cat.valueLost.toFixed(2) }}</div>
+              </div>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+    }
+
+    <!-- Filters -->
+    <mat-card class="filter-card">
+      <mat-card-content>
+        <div class="filter-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Category</mat-label>
+            <mat-select [(value)]="selectedCategoryId" (selectionChange)="onCategoryFilterChange($event.value)">
+              <mat-option [value]="null">All Categories</mat-option>
+              @for (category of categories; track category.id) {
+                <mat-option [value]="category.id">{{ category.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Time Range</mat-label>
+            <mat-select [(value)]="selectedTimeRange" (selectionChange)="onTimeRangeChange($event.value)">
+              <mat-option value="week">Last Week</mat-option>
+              <mat-option value="month">Last Month</mat-option>
+              <mat-option value="year">Last Year</mat-option>
+              <mat-option value="all">All Time</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        @if (selectedCategoryId || selectedTimeRange !== 'all') {
+          <div class="filter-summary">
+            <mat-chip-set>
+              <mat-chip class="filter-chip">
+                <mat-icon>filter_list</mat-icon>
+                {{ getFilteredStats().itemsWasted }} items / ${{ getFilteredStats().valueLost.toFixed(2) }}
+              </mat-chip>
+            </mat-chip-set>
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Wasted Items List -->
+    @if (filteredItems.length > 0) {
+      <div class="waste-list">
+        @for (item of filteredItems; track item.id) {
+          <mat-card class="waste-item">
+            <mat-card-content>
+              <div class="item-main">
+                <div class="item-icon">
+                  <mat-icon>{{ getCategoryIcon(item.categoryName || 'Other') }}</mat-icon>
+                </div>
+                <div class="item-details">
+                  <h3 class="item-name">{{ item.itemName }}</h3>
+                  <div class="item-meta">
+                    <span class="meta-item">
+                      <mat-icon>category</mat-icon>
+                      {{ item.categoryName || 'Unknown' }}
+                    </span>
+                    <span class="meta-item">
+                      <mat-icon>scale</mat-icon>
+                      {{ item.quantity }} {{ item.unit }}
+                    </span>
+                    <span class="meta-item">
+                      <mat-icon>event</mat-icon>
+                      {{ formatDate(item.wastedDate) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="item-value">
+                  <span class="value-amount">${{ formatValue(item.price || 0, item.quantity) }}</span>
+                  @if (item.price) {
+                    <span class="value-unit">${{ item.price.toFixed(2) }}/{{ item.unit }}</span>
+                  }
+                </div>
+              </div>
+              <div class="item-actions">
+                <button mat-icon-button color="warn" (click)="onDeleteItem(item)" title="Remove from history">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        }
+      </div>
+    } @else {
+      <mat-card class="empty-state">
+        <mat-icon>check_circle</mat-icon>
+        <h2>No Waste Found</h2>
+        <p>
+          @if (selectedCategoryId || selectedTimeRange !== 'all') {
+            No items match your selected filters.
+          } @else {
+            Great job! You haven't wasted any items yet.
+          }
+        </p>
+      </mat-card>
+    }
+
+    <!-- Tips Card -->
+    <mat-card class="tips-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>lightbulb</mat-icon>
+          Reduce Waste Tips
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <ul class="tips-list">
+          <li>Check expiration dates regularly and use items before they expire</li>
+          <li>Store food properly to extend shelf life</li>
+          <li>Use the "First In, First Out" (FIFO) method</li>
+          <li>Plan meals around items that are expiring soon</li>
+          <li>Freeze items before they spoil to use later</li>
+        </ul>
+      </mat-card-content>
+    </mat-card>
+  }
+</div>

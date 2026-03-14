@@ -1,0 +1,150 @@
+<div class="login-wrapper">
+  <mat-card class="login-card">
+    <!-- Logo and Brand -->
+    <div class="brand-header">
+      <div class="logo">
+        <mat-icon class="logo-icon">art_track</mat-icon>
+        <span class="brand-name">Inventory<span class="brand-highlight">Tracking</span></span>
+      </div>
+    </div>
+
+    <!-- Login View -->
+    @if (viewMode === 'login') {
+      <mat-card-content>
+        <h2 class="form-title">Login to Your Account</h2>
+        <p class="form-subtitle">Enter your Username & Password to login</p>
+
+        <div class="form-content">
+          <!-- Username -->
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <div class="input-wrapper">
+              <mat-icon class="input-icon">alternate_email</mat-icon>
+              <input 
+                type="text" 
+                class="form-input" 
+                [(ngModel)]="loginUsername" 
+                placeholder="Enter your username"
+                (keyup.enter)="onLogin()"
+              />
+            </div>
+          </div>
+
+          <!-- Password -->
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <div class="input-wrapper">
+              <input 
+                type="password" 
+                class="form-input" 
+                [(ngModel)]="loginPassword" 
+                placeholder="Enter your password"
+                (keyup.enter)="onLogin()"
+              />
+            </div>
+          </div>
+
+          <!-- Login Button -->
+          <button 
+            class="submit-button login-button" 
+            (click)="onLogin()" 
+            [disabled]="isLoading"
+          >
+            {{ isLoading ? 'Logging in...' : 'Login' }}
+          </button>
+
+          <!-- Switch to Register -->
+          <div class="switch-view">
+            Don't have account? 
+            <a href="#" class="switch-link" (click)="$event.preventDefault(); switchToRegister()">
+              Create an account
+            </a>
+          </div>
+        </div>
+      </mat-card-content>
+    }
+
+    <!-- Register View -->
+    @if (viewMode === 'register') {
+      <mat-card-content>
+        <h2 class="form-title">Create New Account</h2>
+        <p class="form-subtitle">Please fill in the form to continue</p>
+
+        <div class="form-content">
+          <!-- Username -->
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <div class="input-wrapper">
+              <mat-icon class="input-icon">person</mat-icon>
+              <input 
+                type="text" 
+                class="form-input" 
+                [(ngModel)]="registerUsername" 
+                placeholder="Choose username"
+              />
+            </div>
+          </div>
+
+          <!-- Email -->
+          <div class="form-group">
+            <label class="form-label">Email (Optional)</label>
+            <div class="input-wrapper">
+              <mat-icon class="input-icon">email</mat-icon>
+              <input 
+                type="email" 
+                class="form-input" 
+                [(ngModel)]="registerEmail" 
+                placeholder="Enter your email"
+              />
+            </div>
+          </div>
+
+          <!-- Password -->
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <div class="input-wrapper">
+              <mat-icon class="input-icon">lock</mat-icon>
+              <input 
+                type="password" 
+                class="form-input" 
+                [(ngModel)]="registerPassword" 
+                placeholder="Choose password"
+              />
+            </div>
+          </div>
+
+          <!-- Confirm Password -->
+          <div class="form-group">
+            <label class="form-label">Confirm Password</label>
+            <div class="input-wrapper">
+              <mat-icon class="input-icon">lock</mat-icon>
+              <input 
+                type="password" 
+                class="form-input" 
+                [(ngModel)]="registerConfirmPassword" 
+                placeholder="Confirm password"
+              />
+            </div>
+          </div>
+
+          <!-- Register Button -->
+          <button 
+            class="submit-button register-button" 
+            (click)="onRegister()" 
+            [disabled]="isLoading"
+          >
+            {{ isLoading ? 'Creating Account...' : 'Sign Up' }}
+          </button>
+
+          <!-- Switch to Login -->
+          <div class="switch-view">
+            Already have an account? 
+            <a href="#" class="switch-link" (click)="$event.preventDefault(); switchToLogin()">
+              Login here
+            </a>
+          </div>
+        </div>
+      </mat-card-content>
+    }
+  </mat-card>
+</div>

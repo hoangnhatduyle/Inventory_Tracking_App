@@ -1,0 +1,452 @@
+<div class="settings-container">
+  <div class="settings-header">
+    <h1>⚙️ Settings</h1>
+    <p class="subtitle">Manage your app preferences and data</p>
+  </div>
+
+  <!-- Account Section -->
+  <mat-expansion-panel class="settings-panel" [expanded]="true">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>person</mat-icon>
+        <span>Account</span>
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+    
+    <div class="panel-content">
+      <div class="account-info" *ngIf="currentUser">
+        <div class="info-row">
+          <mat-icon>account_circle</mat-icon>
+          <div>
+            <strong>Username</strong>
+            <p>{{ currentUser.username }}</p>
+          </div>
+        </div>
+        <div class="info-row" *ngIf="currentUser.email">
+          <mat-icon>email</mat-icon>
+          <div>
+            <strong>Email</strong>
+            <p>{{ currentUser.email }}</p>
+          </div>
+        </div>
+        <div class="info-row" *ngIf="currentUser.createdAt">
+          <mat-icon>event</mat-icon>
+          <div>
+            <strong>Member Since</strong>
+            <p>{{ currentUser.createdAt | date:'mediumDate' }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- Storage Locations Section -->
+  <mat-expansion-panel class="settings-panel" [expanded]="true">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>location_on</mat-icon>
+        <span>Storage Locations</span>
+      </mat-panel-title>
+      <mat-panel-description>
+        {{ locations.length }} location{{ locations.length !== 1 ? 's' : '' }}
+      </mat-panel-description>
+    </mat-expansion-panel-header>
+    
+    <div class="panel-content">
+      <p class="helper-text">Add and manage where you store your food items</p>
+      
+      <button mat-raised-button color="primary" (click)="openAddLocationDialog()" class="add-location-btn">
+        <mat-icon>add</mat-icon>
+        Add Location
+      </button>
+
+      <div *ngIf="locations.length > 0" class="locations-list">
+        <div *ngFor="let location of locations" class="location-item">
+          <div class="location-content">
+            <mat-icon>kitchen</mat-icon>
+            <div class="location-text">
+              <div class="location-name">{{ location.name }}</div>
+              <div class="location-sublocation" *ngIf="location.subLocation">{{ location.subLocation }}</div>
+            </div>
+          </div>
+          <div class="location-actions">
+            <button mat-icon-button (click)="openEditLocationDialog(location)" matTooltip="Edit">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button (click)="deleteLocation(location)" matTooltip="Delete" color="warn">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="locations.length === 0" class="empty-state">
+        <mat-icon>location_off</mat-icon>
+        <p>No locations added yet</p>
+        <p class="empty-hint">Add your first storage location to start organizing your inventory</p>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- Recipe Management Section -->
+  <mat-expansion-panel class="settings-panel">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>restaurant_menu</mat-icon>
+        <span>Recipe Management</span>
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+    
+    <div class="panel-content">
+      <p class="helper-text">Manage your recipe database for meal planning suggestions</p>
+      
+      <div class="notification-setting">
+        <div class="setting-info">
+          <mat-icon>menu_book</mat-icon>
+          <div>
+            <strong>Manage Recipes</strong>
+            <p>Add, edit, and delete recipes for ingredient matching</p>
+          </div>
+        </div>
+        <button mat-raised-button color="primary" (click)="navigateToRecipeManager()">
+          <mat-icon>arrow_forward</mat-icon>
+          Open Recipe Manager
+        </button>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- Notifications Section -->
+  <mat-expansion-panel class="settings-panel">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>notifications</mat-icon>
+        <span>Notifications</span>
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+    
+    <div class="panel-content">
+      <p class="helper-text">Manage expiration notifications and reminders</p>
+      
+      <div class="notification-setting">
+        <div class="setting-info">
+          <mat-icon>notifications_active</mat-icon>
+          <div>
+            <strong>Enable Notifications</strong>
+            <p>Receive alerts for expiring items</p>
+          </div>
+        </div>
+        <button mat-raised-button color="accent" (click)="requestNotificationPermissions()">
+          <mat-icon>check_circle</mat-icon>
+          Grant Permission
+        </button>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="notification-setting">
+        <div class="setting-info">
+          <mat-icon>refresh</mat-icon>
+          <div>
+            <strong>Reschedule Notifications</strong>
+            <p>Update notifications for all items</p>
+          </div>
+        </div>
+        <button mat-raised-button (click)="rescheduleNotifications()">
+          <mat-icon>sync</mat-icon>
+          Reschedule
+        </button>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="notification-setting">
+        <div class="setting-info">
+          <mat-icon>list</mat-icon>
+          <div>
+            <strong>View Pending Notifications</strong>
+            <p>See all scheduled notifications in console</p>
+          </div>
+        </div>
+        <button mat-raised-button (click)="viewPendingNotifications()">
+          <mat-icon>visibility</mat-icon>
+          View Pending
+        </button>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="notification-setting">
+        <div class="setting-info">
+          <mat-icon>science</mat-icon>
+          <div>
+            <strong>Test Notification</strong>
+            <p>Send a test notification in 1 minute</p>
+          </div>
+        </div>
+        <button mat-raised-button color="primary" (click)="scheduleTestNotification()">
+          <mat-icon>send</mat-icon>
+          Schedule Test
+        </button>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- PIN Security Section -->
+  <mat-expansion-panel class="settings-panel">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>lock</mat-icon>
+        <span>PIN Security</span>
+      </mat-panel-title>
+      <mat-panel-description>
+        Protect Admin Sections
+      </mat-panel-description>
+    </mat-expansion-panel-header>
+    
+    <div class="panel-content">
+      <p class="helper-text">Secure access to Database Browser, Image Storage, and Console Logs</p>
+      
+      <div *ngIf="!isPinSet" class="notification-setting">
+        <div class="setting-info">
+          <mat-icon color="warn">lock_open</mat-icon>
+          <div>
+            <strong>No PIN Set</strong>
+            <p>Admin sections are currently unprotected</p>
+          </div>
+        </div>
+        <button mat-raised-button color="primary" (click)="setupPin()">
+          <mat-icon>add</mat-icon>
+          Set PIN
+        </button>
+      </div>
+
+      <div *ngIf="isPinSet && !isAdminUnlocked" class="notification-setting">
+        <div class="setting-info">
+          <mat-icon color="primary">lock</mat-icon>
+          <div>
+            <strong>Admin Sections Locked</strong>
+            <p>Enter PIN to access protected sections</p>
+          </div>
+        </div>
+        <button mat-raised-button color="accent" (click)="unlockAdminSections()">
+          <mat-icon>lock_open</mat-icon>
+          Unlock
+        </button>
+      </div>
+
+      <div *ngIf="isPinSet && isAdminUnlocked" class="notification-setting">
+        <div class="setting-info">
+          <mat-icon style="color: #4caf50;">lock_open</mat-icon>
+          <div>
+            <strong>Admin Sections Unlocked</strong>
+            <p>You have access to all protected sections</p>
+          </div>
+        </div>
+        <button mat-raised-button (click)="lockAdminSections()">
+          <mat-icon>lock</mat-icon>
+          Lock
+        </button>
+      </div>
+
+      <mat-divider *ngIf="isPinSet"></mat-divider>
+
+      <div *ngIf="isPinSet" class="notification-setting">
+        <div class="setting-info">
+          <mat-icon>edit</mat-icon>
+          <div>
+            <strong>Change PIN</strong>
+            <p>Update your security PIN</p>
+          </div>
+        </div>
+        <button mat-raised-button (click)="changePin()">
+          <mat-icon>vpn_key</mat-icon>
+          Change PIN
+        </button>
+      </div>
+
+      <mat-divider *ngIf="isPinSet"></mat-divider>
+
+      <div *ngIf="isPinSet" class="notification-setting">
+        <div class="setting-info">
+          <mat-icon color="warn">delete</mat-icon>
+          <div>
+            <strong>Remove PIN</strong>
+            <p>Disable PIN protection</p>
+          </div>
+        </div>
+        <button mat-raised-button color="warn" (click)="removePin()">
+          <mat-icon>no_encryption</mat-icon>
+          Remove PIN
+        </button>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- Data Management Section (PIN Protected) -->
+  <mat-expansion-panel class="settings-panel" [disabled]="isPinSet && !isAdminUnlocked">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>storage</mat-icon>
+        <span>Data Management</span>
+        <mat-icon *ngIf="isPinSet && !isAdminUnlocked" style="margin-left: 0.5rem; font-size: 18px; width: 18px; height: 18px; color: #ff9800;">lock</mat-icon>
+      </mat-panel-title>
+      <mat-panel-description>
+        Backup & Restore Database
+      </mat-panel-description>
+    </mat-expansion-panel-header>
+    
+    <div class="panel-content">
+      <p class="helper-text">Backup & Restore your inventory data</p>
+
+      <div class="data-action">
+        <div class="action-info">
+          <mat-icon>archive</mat-icon>
+          <div>
+            <strong>Full Database Backup</strong>
+            <p>Export entire database as JSON backup file (all tables, all users)</p>
+            <small style="color: #ff9800; display: block; margin-top: 4px;">⚠️ Does not include images</small>
+          </div>
+        </div>
+        <button mat-raised-button color="primary" (click)="exportSQLiteDatabase()">
+          <mat-icon>cloud_download</mat-icon>
+          Backup Database
+        </button>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="data-action">
+        <div class="action-info">
+          <mat-icon>unarchive</mat-icon>
+          <div>
+            <strong>Restore Database</strong>
+            <p>Import database from JSON backup file</p>
+            <small style="color: #f44336; display: block; margin-top: 4px;">⚠️ This will REPLACE all existing data!</small>
+          </div>
+        </div>
+        <button mat-raised-button color="warn" (click)="importSQLiteDatabase()">
+          <mat-icon>cloud_upload</mat-icon>
+          Restore Backup
+        </button>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- Database Browser Section (PIN Protected) -->
+  <mat-expansion-panel class="settings-panel" [disabled]="isPinSet && !isAdminUnlocked">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>table_view</mat-icon>
+        <span>Database Browser</span>
+        <mat-icon *ngIf="isPinSet && !isAdminUnlocked" style="margin-left: 0.5rem; font-size: 18px; width: 18px; height: 18px; color: #ff9800;">lock</mat-icon>
+      </mat-panel-title>
+      <mat-panel-description>
+        View & Edit Raw Data
+      </mat-panel-description>
+    </mat-expansion-panel-header>
+    
+    <div class="panel-content">
+      <p class="helper-text">View and edit raw database tables</p>
+      <app-data-browser *ngIf="!isPinSet || isAdminUnlocked"></app-data-browser>
+      <div *ngIf="isPinSet && !isAdminUnlocked" class="locked-section">
+        <mat-icon>lock</mat-icon>
+        <p>This section is PIN protected</p>
+        <button mat-raised-button color="primary" (click)="unlockAdminSections()">
+          <mat-icon>lock_open</mat-icon>
+          Unlock with PIN
+        </button>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- Image Storage Section (PIN Protected) -->
+  <mat-expansion-panel class="settings-panel" [disabled]="isPinSet && !isAdminUnlocked">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>photo_library</mat-icon>
+        <span>Image Storage</span>
+        <mat-icon *ngIf="isPinSet && !isAdminUnlocked" style="margin-left: 0.5rem; font-size: 18px; width: 18px; height: 18px; color: #ff9800;">lock</mat-icon>
+      </mat-panel-title>
+      <mat-panel-description>
+        Manage Stored Images
+      </mat-panel-description>
+    </mat-expansion-panel-header>
+    
+    <div class="panel-content">
+      <p class="helper-text">View and delete images stored in the app</p>
+      <app-image-storage-browser *ngIf="!isPinSet || isAdminUnlocked"></app-image-storage-browser>
+      <div *ngIf="isPinSet && !isAdminUnlocked" class="locked-section">
+        <mat-icon>lock</mat-icon>
+        <p>This section is PIN protected</p>
+        <button mat-raised-button color="primary" (click)="unlockAdminSections()">
+          <mat-icon>lock_open</mat-icon>
+          Unlock with PIN
+        </button>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- Console Logs Section (PIN Protected) -->
+  <mat-expansion-panel class="settings-panel" [disabled]="isPinSet && !isAdminUnlocked">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>terminal</mat-icon>
+        <span>Console Logs</span>
+        <mat-icon *ngIf="isPinSet && !isAdminUnlocked" style="margin-left: 0.5rem; font-size: 18px; width: 18px; height: 18px; color: #ff9800;">lock</mat-icon>
+      </mat-panel-title>
+      <mat-panel-description>
+        View App Logs & Debug Info
+      </mat-panel-description>
+    </mat-expansion-panel-header>
+    
+    <div class="panel-content">
+      <p class="helper-text">View real-time console logs from the app (latest 200 entries)</p>
+      <app-console-viewer *ngIf="!isPinSet || isAdminUnlocked"></app-console-viewer>
+      <div *ngIf="isPinSet && !isAdminUnlocked" class="locked-section">
+        <mat-icon>lock</mat-icon>
+        <p>This section is PIN protected</p>
+        <button mat-raised-button color="primary" (click)="unlockAdminSections()">
+          <mat-icon>lock_open</mat-icon>
+          Unlock with PIN
+        </button>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- App Info Section -->
+  <mat-expansion-panel class="settings-panel">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>info</mat-icon>
+        <span>About</span>
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+    
+    <div class="panel-content">
+      <div class="app-info">
+        <div class="info-row">
+          <mat-icon>inventory</mat-icon>
+          <div>
+            <strong>Chắt Chiu</strong>
+            <p>Version 1.0.0</p>
+          </div>
+        </div>
+        <div class="info-row">
+          <mat-icon>smartphone</mat-icon>
+          <div>
+            <strong>Platform</strong>
+            <p>Offline-first inventory management</p>
+          </div>
+        </div>
+        <div class="info-row">
+          <mat-icon>storage</mat-icon>
+          <div>
+            <strong>Database</strong>
+            <p>Local SQLite / localStorage</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </mat-expansion-panel>
+</div>

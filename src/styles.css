@@ -1,0 +1,296 @@
+/* Global styles with food theme */
+@import 'theme.scss';
+
+html, body { 
+  height: 100%; 
+  margin: 0;
+  padding: 0;
+}
+
+body { 
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  background-color: var(--background-main);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Food-themed utility classes */
+.text-primary-color {
+  color: var(--primary-color) !important;
+}
+
+.text-accent-color {
+  color: var(--accent-color) !important;
+}
+
+.bg-primary {
+  background-color: var(--primary-color) !important;
+}
+
+.bg-accent {
+  background-color: var(--accent-color) !important;
+}
+
+.border-primary {
+  border-color: var(--primary-color) !important;
+}
+
+.border-accent {
+  border-color: var(--accent-color) !important;
+}
+
+/* Smooth transitions for interactive elements */
+a, button, .clickable {
+  transition: all 0.2s ease;
+}
+
+/* Focus styles with food theme */
+*:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Card shadows with warm tones */
+.mat-mdc-card {
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.08) !important;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.mat-mdc-card:hover {
+  box-shadow: 0 4px 16px rgba(76, 175, 80, 0.12) !important;
+}
+
+/* Elevated cards */
+.elevated-card {
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.15) !important;
+}
+
+/* Food-themed accent borders */
+.accent-border-top {
+  border-top: 3px solid var(--accent-color);
+}
+
+.accent-border-left {
+  border-left: 4px solid var(--accent-color);
+}
+
+.primary-border-bottom {
+  border-bottom: 2px solid var(--primary-color);
+}
+
+/* Gradient backgrounds */
+.gradient-primary {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-light) 100%);
+}
+
+.gradient-warm {
+  background: linear-gradient(135deg, #4caf50 0%, #66bb6a 50%, #ff9800 100%);
+}
+
+/* Status colors for food freshness */
+.status-fresh {
+  color: #4caf50;
+  background-color: rgba(76, 175, 80, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.status-expiring {
+  color: #ff9800;
+  background-color: rgba(255, 152, 0, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.status-expired {
+  color: #f44336;
+  background-color: rgba(244, 67, 54, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* Pulse animation for notifications */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.95);
+  }
+}
+
+.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Slide in animation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* Loading spinner with food theme colors */
+.loading-spinner {
+  border: 3px solid rgba(76, 175, 80, 0.1);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+.skeleton-loader {
+  background: linear-gradient(
+    90deg,
+    rgba(76, 175, 80, 0.05) 0%,
+    rgba(76, 175, 80, 0.1) 50%,
+    rgba(76, 175, 80, 0.05) 100%
+  );
+  background-size: 468px 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+/* Snackbar customization with food theme */
+.mat-mdc-snack-bar-container {
+  --mdc-snackbar-container-color: var(--primary-dark);
+  --mat-snack-bar-button-color: var(--accent-light);
+}
+
+/* Chip customization */
+.mat-mdc-chip.mat-primary {
+  --mdc-chip-elevated-container-color: var(--primary-color);
+  --mdc-chip-label-text-color: white;
+}
+
+.mat-mdc-chip.mat-accent {
+  --mdc-chip-elevated-container-color: var(--accent-color);
+  --mdc-chip-label-text-color: rgba(0, 0, 0, 0.87);
+}
+
+/* Responsive font sizes */
+@media (max-width: 599px) {
+  body {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 959px) {
+  body {
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 960px) {
+  body {
+    font-size: 16px;
+  }
+}
+
+/* Tablet-specific touch optimization */
+@media (min-width: 768px) and (max-width: 1024px) {
+  button, .mat-mdc-button, .mat-mdc-icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .mat-mdc-form-field {
+    min-height: 56px;
+  }
+  
+  input, textarea, select {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  .no-print, button, .mat-mdc-fab, nav {
+    display: none !important;
+  }
+}
+
+/* Center Material Bottom Sheet using custom panelClass 'centered-bottom-sheet' */
+.cdk-overlay-pane.centered-bottom-sheet {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translate(-50%, -50%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: auto !important; /* ensure pointer events aren't blocked */
+}
+
+.cdk-overlay-pane.centered-bottom-sheet .mat-mdc-bottom-sheet-sheet,
+.cdk-overlay-pane.centered-bottom-sheet .mat-bottom-sheet-container {
+  width: calc(100% - 48px) !important;
+  max-width: 720px !important;
+  max-height: 80vh !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+@media (max-width: 600px) {
+  .cdk-overlay-pane.centered-bottom-sheet .mat-mdc-bottom-sheet-sheet,
+  .cdk-overlay-pane.centered-bottom-sheet .mat-bottom-sheet-container {
+    width: calc(100% - 16px) !important;
+  }
+}

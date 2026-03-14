@@ -1,0 +1,147 @@
+<div class="shopping-list-container">
+  <!-- Header -->
+  <div class="shopping-header">
+    <div class="header-content">
+      <h1>🛒 Shopping List</h1>
+      <div class="header-stats">
+        <mat-chip class="pending-chip">{{ pendingCount }} to buy</mat-chip>
+        <mat-chip class="purchased-chip" *ngIf="purchasedCount > 0">{{ purchasedCount }} purchased</mat-chip>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Item Card -->
+  <mat-card class="add-item-card">
+    <mat-card-content>
+      <div class="add-item-form">
+        <mat-form-field appearance="outline" class="item-name-field">
+          <mat-label>Item name</mat-label>
+          <input matInput [(ngModel)]="newItemName" placeholder="e.g., Milk, Eggs, Bread" 
+                 (keyup.enter)="onAddItem()">
+          <mat-icon matPrefix>add_shopping_cart</mat-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="quantity-field">
+          <mat-label>Quantity (optional)</mat-label>
+          <input matInput [(ngModel)]="newItemQuantity" placeholder="e.g., 2L, 1 dozen" 
+                 (keyup.enter)="onAddItem()">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="notes-field">
+          <mat-label>Notes (optional)</mat-label>
+          <input matInput [(ngModel)]="newItemNotes" placeholder="Brand, size, etc." 
+                 (keyup.enter)="onAddItem()">
+          <mat-icon matPrefix>note</mat-icon>
+        </mat-form-field>
+
+        <button mat-raised-button color="primary" (click)="onAddItem()" class="add-button">
+          <mat-icon>add</mat-icon>
+          Add
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- View Options -->
+  <div class="view-options">
+    <div class="option-group">
+      <mat-checkbox [(ngModel)]="groupByCategory">
+        Group by category
+      </mat-checkbox>
+      <mat-checkbox [(ngModel)]="showPurchased">
+        Show purchased
+      </mat-checkbox>
+    </div>
+    
+    <div class="action-buttons">
+      <button mat-stroked-button (click)="onExportList()" [disabled]="items.length === 0">
+        <mat-icon>download</mat-icon>
+        Export
+      </button>
+      <button mat-stroked-button (click)="onClearPurchased()" 
+              [disabled]="purchasedCount === 0" color="warn">
+        <mat-icon>delete_sweep</mat-icon>
+        Clear Purchased
+      </button>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div class="empty-state" *ngIf="items.length === 0">
+    <mat-icon>shopping_cart</mat-icon>
+    <h2>Your shopping list is empty</h2>
+    <p>Add items you need to buy to your shopping list</p>
+  </div>
+
+  <!-- Shopping List Items -->
+  <div class="items-container" *ngIf="items.length > 0">
+    <div *ngFor="let group of getGroupedItems() | keyvalue" class="group-section">
+      <h3 class="group-title" *ngIf="groupByCategory">{{ group.key }}</h3>
+      
+      <mat-card class="items-card">
+        <mat-card-content>
+          <div class="shopping-item" *ngFor="let item of group.value"
+               [class.purchased]="item.isPurchased">
+            
+            <mat-checkbox [(ngModel)]="item.isPurchased" 
+                          (change)="onTogglePurchased(item)"
+                          class="item-checkbox">
+            </mat-checkbox>
+
+            <div class="item-content">
+              <div class="item-header">
+                <span class="item-name" [class.strikethrough]="item.isPurchased">
+                  {{ item.name }}
+                </span>
+                <button mat-icon-button [matMenuTriggerFor]="menu" class="item-menu">
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+                <mat-menu #menu="matMenu">
+                  <button mat-menu-item (click)="onDeleteItem(item)">
+                    <mat-icon>delete</mat-icon>
+                    <span>Delete</span>
+                  </button>
+                </mat-menu>
+              </div>
+
+              <div class="item-details" *ngIf="item.quantity || item.notes">
+                <span *ngIf="item.quantity" class="item-quantity">
+                  <mat-icon>scale</mat-icon>
+                  {{ item.quantity }}
+                </span>
+                <span *ngIf="item.notes" class="item-notes">
+                  <mat-icon>note</mat-icon>
+                  {{ item.notes }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+
+  <!-- Summary Footer -->
+  <div class="summary-footer" *ngIf="items.length > 0">
+    <mat-card>
+      <mat-card-content>
+        <div class="summary-content">
+          <div class="summary-stat">
+            <mat-icon>shopping_basket</mat-icon>
+            <span>{{ items.length }} total items</span>
+          </div>
+          <div class="summary-stat">
+            <mat-icon [class.completed]="pendingCount === 0">
+              {{ pendingCount === 0 ? 'check_circle' : 'radio_button_unchecked' }}
+            </mat-icon>
+            <span>{{ pendingCount }} pending</span>
+          </div>
+          <div class="summary-stat" *ngIf="purchasedCount > 0">
+            <mat-icon class="completed">check_circle</mat-icon>
+            <span>{{ purchasedCount }} purchased</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
