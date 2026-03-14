@@ -283,6 +283,75 @@
     </div>
   </mat-expansion-panel>
 
+  <!-- API Configuration Section -->
+  <mat-expansion-panel class="settings-panel">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>api</mat-icon>
+        <span>API Configuration</span>
+      </mat-panel-title>
+      <mat-panel-description>
+        <span *ngIf="apiConfigService.hasOpenaiApiKey()">✓ Configured</span>
+        <span *ngIf="!apiConfigService.hasOpenaiApiKey()">Not configured</span>
+      </mat-panel-description>
+    </mat-expansion-panel-header>
+
+    <div class="panel-content">
+      <p class="helper-text">Configure API keys for AI features</p>
+
+      <div class="api-config-item">
+        <div class="api-info">
+          <mat-icon>smart_toy</mat-icon>
+          <div>
+            <strong>OpenAI API Key</strong>
+            <p>Enable AI-powered expiration date suggestions</p>
+            <small *ngIf="apiConfigService.hasOpenaiApiKey()" style="color: #4caf50; display: block; margin-top: 4px;">✓ API key configured</small>
+            <small *ngIf="!apiConfigService.hasOpenaiApiKey()" style="color: #ff9800; display: block; margin-top: 4px;">⚠️ Not configured - AI features disabled</small>
+          </div>
+        </div>
+        <div>
+          <button mat-raised-button color="primary" (click)="showApiKeyInput = !showApiKeyInput" *ngIf="!showApiKeyInput">
+            <mat-icon>{{ apiConfigService.hasOpenaiApiKey() ? 'edit' : 'add' }}</mat-icon>
+            {{ apiConfigService.hasOpenaiApiKey() ? 'Update' : 'Add' }} API Key
+          </button>
+
+          <div *ngIf="showApiKeyInput" class="api-key-input-section">
+            <mat-form-field class="full-width">
+              <mat-label>OpenAI API Key</mat-label>
+              <input matInput type="password" [(ngModel)]="openaiApiKey" placeholder="sk-...">
+              <mat-hint>Your key is stored locally and never sent to our servers</mat-hint>
+            </mat-form-field>
+            <div class="action-buttons">
+              <button mat-raised-button color="primary" (click)="saveOpenaiApiKey()">
+                <mat-icon>save</mat-icon>
+                Save
+              </button>
+              <button mat-raised-button (click)="showApiKeyInput = false">
+                <mat-icon>close</mat-icon>
+                Cancel
+              </button>
+              <button mat-raised-button color="warn" (click)="clearOpenaiApiKey()" *ngIf="apiConfigService.hasOpenaiApiKey()">
+                <mat-icon>delete</mat-icon>
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="api-info-box">
+        <p><strong>How to get an OpenAI API key:</strong></p>
+        <ol>
+          <li>Go to <a href="https://platform.openai.com/account/api-keys" target="_blank">platform.openai.com/account/api-keys</a></li>
+          <li>Sign in or create a free account</li>
+          <li>Click "Create new secret key"</li>
+          <li>Copy the key and paste it here</li>
+        </ol>
+        <p style="font-size: 12px; color: #999;">Note: OpenAI charges for API usage. Monitor your usage at <a href="https://platform.openai.com/account/billing/overview" target="_blank">platform.openai.com/account/billing</a></p>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
   <!-- Data Management Section (PIN Protected) -->
   <mat-expansion-panel class="settings-panel" [disabled]="isPinSet && !isAdminUnlocked">
     <mat-expansion-panel-header>

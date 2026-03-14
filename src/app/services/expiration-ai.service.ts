@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { DatabaseService } from './database.service';
-import { environment } from '../../environments/environment';
+import { ApiConfigService } from './api-config.service';
 import { toLocalDateString } from '../utils/date.utils';
 
 export interface AIExpirationSuggestion {
@@ -16,7 +16,10 @@ export class ExpirationAIService {
   private readonly MONTHLY_LIMIT = 1000;
   private readonly MODEL = 'gpt-4.1-mini'; // Cost-efficient model
 
-  constructor(private databaseService: DatabaseService) {}
+  constructor(
+    private databaseService: DatabaseService,
+    private apiConfigService: ApiConfigService
+  ) {}
 
   /**
    * Check if user has reached their monthly AI request limit
@@ -79,9 +82,9 @@ export class ExpirationAIService {
       throw new Error(`Monthly AI request limit reached (${rateLimitCheck.limit} requests/month). Try again next month.`);
     }
 
-    // Validate API key
-    if (!environment.openaiApiKey || environment.openaiApiKey === 'YOUR_OPENAI_API_KEY_HERE') {
-      throw new Error('OpenAI API key not configured. Please add your API key to environment.ts');
+    // Validate API key is configured
+    if (!this.apiConfigService.hasOpenaiApiKey()) {
+      throw new Error('OpenAI API key not configured. Please add your API key in Settings.');
     }
 
     try {
@@ -158,11 +161,12 @@ Return only the JSON object, no other text.`;
    * Call OpenAI API
    */
   private async callOpenAI(prompt: string): Promise<string> {
+    const apiKey = this.apiConfigService.getOpenaiApiKey();
     const response = await fetch(this.OPENAI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${environment.openaiApiKey}`
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: this.MODEL,

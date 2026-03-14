@@ -27,6 +27,7 @@ import { ConsoleViewerComponent } from './console-viewer.component';
 import { ImageStorageBrowserComponent } from './image-storage-browser.component';
 import { ConsoleLoggerService } from '../../services/console-logger.service';
 import { DatabaseService } from '../../services/database.service';
+import { ApiConfigService } from '../../services/api-config.service';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { toLocalDateString } from '../../utils/date.utils';
 import { Share } from '@capacitor/share';
@@ -61,10 +62,14 @@ export class Settings implements OnInit {
   userId: number | null = null;
   currentUser: any = null;
   notificationsEnabled = true;
-  
+
   // PIN protection state
   isAdminUnlocked = false;
   isPinSet = false;
+
+  // API configuration
+  openaiApiKey = '';
+  showApiKeyInput = false;
 
   constructor(
     private router: Router,
@@ -75,6 +80,7 @@ export class Settings implements OnInit {
     private consoleLogger: ConsoleLoggerService,
     private pinService: PinService,
     private databaseService: DatabaseService,
+    public apiConfigService: ApiConfigService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) { }
@@ -83,6 +89,8 @@ export class Settings implements OnInit {
     this.userId = await this.authService.getCurrentUserId();
     this.currentUser = await this.authService.getCurrentUser();
     this.isPinSet = await this.pinService.isPinSet();
+    // Load current API key
+    this.openaiApiKey = this.apiConfigService.getOpenaiApiKey();
     if (this.userId) {
       await this.loadLocations();
     }
@@ -398,6 +406,24 @@ export class Settings implements OnInit {
         }
       }
     });
+  }
+
+  saveOpenaiApiKey() {
+    if (!this.openaiApiKey.trim()) {
+      this.showMessage('Please enter an API key');
+      return;
+    }
+    this.apiConfigService.setOpenaiApiKey(this.openaiApiKey);
+    this.showMessage('OpenAI API key saved successfully');
+    this.showApiKeyInput = false;
+  }
+
+  clearOpenaiApiKey() {
+    if (confirm('Remove OpenAI API key? AI expiration suggestions will no longer work.')) {
+      this.apiConfigService.clearOpenaiApiKey();
+      this.openaiApiKey = '';
+      this.showMessage('OpenAI API key removed');
+    }
   }
 
   private showMessage(message: string) {
