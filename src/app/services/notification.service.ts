@@ -182,6 +182,13 @@ export class NotificationService {
         }]
       });
 
+      // Log the notification to prevent duplicate alerts within 24h
+      const logQuery = `
+        INSERT INTO notification_log (item_id, notification_date, sent)
+        VALUES (?, ?, 1)
+      `;
+      await this.db.run(logQuery, [itemId, new Date().toISOString()]);
+
       console.log(`Low stock notification sent for ${itemName}`);
     } catch (error) {
       console.error('Error sending low stock notification:', error);

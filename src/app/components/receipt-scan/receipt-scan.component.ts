@@ -12,23 +12,42 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatBottomSheet, MatBottomSheetModule } from '@angular/material/bottom-sheet';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { AuthService } from '../../services/auth.service';
 import { InventoryService } from '../../services/inventory.service';
 import { ReceiptScanService } from '../../services/receipt-scan.service';
+import { ExpirationAIService } from '../../services/expiration-ai.service';
+import { ImageService } from '../../services/image.service';
 import { Category, Location, InventoryItem } from '../../models/inventory.model';
 import { toLocalDateString } from '../../utils/date.utils';
+import { CategorySelectorComponent } from '../item-form/category-selector.component';
+import { LocationSelectorComponent } from '../item-form/location-selector.component';
+import { AISuggestionDialogComponent, AISuggestionDialogData } from '../item-form/ai-suggestion-dialog.component';
 
 interface ReviewItem {
-  selected: boolean;
+  included: boolean;          // includes item in final add
   name: string;
   quantity: number;
   unit: string;
   totalPrice: number | null;
   categoryHint: string;
   categoryId: number;
+  // Matches manual add form fields
+  locationId: number;
+  purchaseDate: string;       // YYYY-MM-DD
+  expirationDate: string;     // YYYY-MM-DD
+  expireAmount: number;       // e.g., 7
+  expireUnit: 'days' | 'weeks' | 'months' | 'years';
+  notes: string;
+  notificationEnabled: boolean;
 }
 
-type Step = 'capture' | 'analyzing' | 'review' | 'adding' | 'done';
+type Step = 'capture' | 'analyzing' | 'item-wizard' | 'adding' | 'done';
 
 @Component({
   selector: 'app-receipt-scan',
@@ -44,19 +63,25 @@ type Step = 'capture' | 'analyzing' | 'review' | 'adding' | 'done';
     MatSelectModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
-    MatDividerModule
+    MatDividerModule,
+    MatBottomSheetModule,
+    MatDialogModule,
+    MatProgressBarModule,
+    MatSlideToggleModule,
+    MatDatepickerModule,
+    MatNativeDateModule
   ],
   template: `
     <div class="receipt-scan-container">
 
       <!-- Header -->
       <div class="scan-header">
-        <button mat-icon-button (click)="onBack()">
+        <button mat-icon-button (click)="step === 'item-wizard' ? goBack() : onBack()" [disabled]="step === 'item-wizard' && isFirstItem">
           <mat-icon>arrow_back</mat-icon>
         </button>
         <h1>Scan Receipt</h1>
-        <div class="step-indicator" *ngIf="step === 'review'">
-          <span class="step-count">{{ selectedCount }} / {{ reviewItems.length }} selected</span>
+        <div class="step-indicator" *ngIf="step === 'item-wizard'">
+          <span class="step-count">Item {{ currentItemIndex + 1 }} / {{ reviewItems.length }}</span>
         </div>
       </div>
 
@@ -87,70 +112,182 @@ type Step = 'capture' | 'analyzing' | 'review' | 'adding' | 'done';
         <p class="hint">AI is parsing your items. This usually takes 5–15 seconds.</p>
       </div>
 
-      <!-- Step: Review -->
-      <div *ngIf="step === 'review'" class="step-review">
-        <div class="review-toolbar">
-          <button mat-button (click)="selectAll()" *ngIf="selectedCount < reviewItems.length">
-            <mat-icon>select_all</mat-icon> Select All
-          </button>
-          <button mat-button (click)="deselectAll()" *ngIf="selectedCount === reviewItems.length">
-            <mat-icon>deselect</mat-icon> Deselect All
-          </button>
-          <span class="spacer"></span>
-          <button mat-raised-button color="primary" [disabled]="selectedCount === 0" (click)="addItems()">
-            <mat-icon>add_shopping_cart</mat-icon>
-            Add {{ selectedCount }} Item{{ selectedCount !== 1 ? 's' : '' }}
-          </button>
-        </div>
+      <!-- Step: Item Wizard -->
+      <div *ngIf="step === 'item-wizard'" class="step-item-wizard">
+        <!-- Progress bar -->
+        <mat-progress-bar mode="determinate" [value]="(currentItemIndex + 1) / reviewItems.length * 100" class="wizard-progress"></mat-progress-bar>
 
-        <div class="review-list">
-          <div *ngFor="let item of reviewItems; let i = index" class="review-item" [class.deselected]="!item.selected">
-            <mat-checkbox [(ngModel)]="item.selected" class="item-checkbox"></mat-checkbox>
+        <!-- Item card -->
+        <div class="wizard-card">
+          <div class="wizard-item-header">
+            <span class="item-progress">Item {{ currentItemIndex + 1 }} of {{ reviewItems.length }}</span>
+            <button mat-icon-button (click)="skipItem()" class="skip-btn">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
 
-            <div class="item-fields">
-              <mat-form-field appearance="outline" class="field-name">
-                <mat-label>Item Name</mat-label>
-                <input matInput [(ngModel)]="item.name">
+          <!-- Basic Information Section -->
+          <div class="wizard-section">
+            <h3 class="wizard-section-title">
+              <mat-icon>info</mat-icon>
+              Basic Information
+            </h3>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Item Name</mat-label>
+              <input matInput [(ngModel)]="currentItem.name" required>
+            </mat-form-field>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>Quantity</mat-label>
+                <input matInput type="number" [(ngModel)]="currentItem.quantity" min="1">
               </mat-form-field>
 
-              <div class="item-row">
-                <mat-form-field appearance="outline" class="field-qty">
-                  <mat-label>Qty</mat-label>
-                  <input matInput type="number" [(ngModel)]="item.quantity" min="1">
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="field-unit">
-                  <mat-label>Unit</mat-label>
-                  <mat-select [(ngModel)]="item.unit">
-                    <mat-option value="piece">piece</mat-option>
-                    <mat-option value="kg">kg</mat-option>
-                    <mat-option value="g">g</mat-option>
-                    <mat-option value="lbs">lbs</mat-option>
-                    <mat-option value="oz">oz</mat-option>
-                    <mat-option value="liter">liter</mat-option>
-                    <mat-option value="ml">ml</mat-option>
-                    <mat-option value="pack">pack</mat-option>
-                    <mat-option value="box">box</mat-option>
-                    <mat-option value="can">can</mat-option>
-                    <mat-option value="bottle">bottle</mat-option>
-                    <mat-option value="bag">bag</mat-option>
-                  </mat-select>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="field-price">
-                  <mat-label>Total Price ($)</mat-label>
-                  <input matInput type="number" [(ngModel)]="item.totalPrice" min="0" step="0.01" placeholder="Total for this quantity">
-                </mat-form-field>
-              </div>
-
-              <mat-form-field appearance="outline" class="field-category">
-                <mat-label>Category</mat-label>
-                <mat-select [(ngModel)]="item.categoryId">
-                  <mat-option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</mat-option>
+              <mat-form-field appearance="outline" class="flex-2">
+                <mat-label>Unit</mat-label>
+                <mat-select [(ngModel)]="currentItem.unit">
+                  <mat-option value="piece">piece</mat-option>
+                  <mat-option value="kg">kg</mat-option>
+                  <mat-option value="g">g</mat-option>
+                  <mat-option value="lbs">lbs</mat-option>
+                  <mat-option value="oz">oz</mat-option>
+                  <mat-option value="liter">liter</mat-option>
+                  <mat-option value="ml">ml</mat-option>
+                  <mat-option value="pack">pack</mat-option>
+                  <mat-option value="box">box</mat-option>
+                  <mat-option value="can">can</mat-option>
+                  <mat-option value="bottle">bottle</mat-option>
+                  <mat-option value="bag">bag</mat-option>
                 </mat-select>
               </mat-form-field>
             </div>
           </div>
+
+          <!-- Storage & Price Section -->
+          <div class="wizard-section">
+            <h3 class="wizard-section-title">
+              <mat-icon>location_on</mat-icon>
+              Storage & Price
+            </h3>
+
+            <div class="selector-field" (click)="openLocationSelector(currentItem)">
+              <div class="selector-label">
+                <mat-icon>kitchen</mat-icon>
+                <span>Storage Location</span>
+              </div>
+              <div class="selector-value">
+                <span *ngIf="getLocationName(currentItem.locationId)">{{ getLocationName(currentItem.locationId) }}</span>
+                <mat-icon>chevron_right</mat-icon>
+              </div>
+            </div>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Total Price ($)</mat-label>
+              <input matInput type="number" [(ngModel)]="currentItem.totalPrice" min="0" step="0.01" placeholder="Total for this quantity">
+            </mat-form-field>
+          </div>
+
+          <!-- Category Section -->
+          <div class="wizard-section">
+            <h3 class="wizard-section-title">
+              <mat-icon>category</mat-icon>
+              Category
+            </h3>
+
+            <div class="selector-field" (click)="openCategorySelector(currentItem)">
+              <div class="selector-label">
+                <mat-icon>label</mat-icon>
+                <span>Category</span>
+              </div>
+              <div class="selector-value">
+                <span *ngIf="categories[currentItem.categoryId - 1]">{{ categories[currentItem.categoryId - 1].name }}</span>
+                <mat-icon>chevron_right</mat-icon>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dates Section -->
+          <div class="wizard-section">
+            <h3 class="wizard-section-title">
+              <mat-icon>event</mat-icon>
+              Dates
+            </h3>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Purchase Date</mat-label>
+              <input matInput [matDatepicker]="purchasePicker" [(ngModel)]="currentItem.purchaseDate" readonly>
+              <mat-datepicker-toggle matSuffix [for]="purchasePicker"></mat-datepicker-toggle>
+              <mat-datepicker #purchasePicker></mat-datepicker>
+            </mat-form-field>
+
+            <div class="expiry-controls">
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>Expires in</mat-label>
+                <input matInput type="number" [(ngModel)]="currentItem.expireAmount" min="0">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>Unit</mat-label>
+                <mat-select [(ngModel)]="currentItem.expireUnit">
+                  <mat-option value="days">Days</mat-option>
+                  <mat-option value="weeks">Weeks</mat-option>
+                  <mat-option value="months">Months</mat-option>
+                  <mat-option value="years">Years</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <button mat-button (click)="onAISuggest(currentItem)" [disabled]="isLoadingAI" color="accent" class="ai-btn">
+                <mat-icon>{{ isLoadingAI ? 'hourglass_empty' : 'lightbulb' }}</mat-icon>
+                {{ isLoadingAI ? 'Suggesting...' : 'AI' }}
+              </button>
+            </div>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Expiration Date</mat-label>
+              <input matInput [matDatepicker]="expiryPicker" [(ngModel)]="currentItem.expirationDate" readonly>
+              <mat-datepicker-toggle matSuffix [for]="expiryPicker"></mat-datepicker-toggle>
+              <mat-datepicker #expiryPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+
+          <!-- Notes Section -->
+          <div class="wizard-section">
+            <h3 class="wizard-section-title">
+              <mat-icon>notes</mat-icon>
+              Notes
+            </h3>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Notes (Optional)</mat-label>
+              <textarea matInput [(ngModel)]="currentItem.notes" rows="2"></textarea>
+            </mat-form-field>
+
+            <div class="notification-toggle">
+              <div class="toggle-info">
+                <mat-icon>notifications</mat-icon>
+                <span>Enable Notifications</span>
+              </div>
+              <mat-slide-toggle [(ngModel)]="currentItem.notificationEnabled" color="primary"></mat-slide-toggle>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom navigation (fixed) -->
+        <div class="wizard-nav">
+          <button mat-button (click)="goBack()" [disabled]="isFirstItem">
+            <mat-icon>arrow_back</mat-icon>
+            Back
+          </button>
+          <button mat-button (click)="skipItem()">
+            <mat-icon>skip_next</mat-icon>
+            Skip
+          </button>
+          <span class="spacer"></span>
+          <button mat-raised-button color="primary" (click)="goNext()">
+            {{ isLastItem ? 'Add All (' + includedCount + ')' : 'Next' }}
+            <mat-icon>{{ isLastItem ? 'check' : 'arrow_forward' }}</mat-icon>
+          </button>
         </div>
       </div>
 
@@ -268,87 +405,187 @@ type Step = 'capture' | 'analyzing' | 'review' | 'adding' | 'done';
       }
     }
 
-    /* Review step */
-    .step-review {
+    /* Item Wizard step */
+    .step-item-wizard {
       flex: 1;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-    }
-
-    .review-toolbar {
-      display: flex;
-      align-items: center;
-      padding: 8px 16px;
-      background: white;
-      border-bottom: 1px solid rgba(0,0,0,0.08);
-      gap: 8px;
-
-      .spacer { flex: 1; }
-    }
-
-    .review-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 16px 80px;
       background: #f5f5f5;
     }
 
-    .review-item {
-      display: flex;
-      gap: 12px;
-      padding: 16px;
-      margin-bottom: 12px;
+    .wizard-progress {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      width: 100%;
+    }
+
+    .wizard-card {
+      flex: 1;
+      overflow-y: auto;
+      margin: 12px 16px 88px 16px;
+      padding: 20px;
       background: white;
-      border: 1px solid rgba(0,0,0,0.12);
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
-      transition: all 0.2s ease;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 
-      &:hover:not(.deselected) {
-        box-shadow: 0 4px 8px rgba(0,0,0,0.12);
-        border-color: rgba(0,0,0,0.18);
-      }
-
-      &.deselected {
-        opacity: 0.45;
-      }
-
-      .item-checkbox {
-        margin-top: 2px;
-        flex-shrink: 0;
-      }
-
-      .item-fields {
-        flex: 1;
+      .wizard-item-header {
         display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
 
-      .field-name {
-        width: 100%;
-
-        ::ng-deep .mat-mdc-form-field-label {
+        .item-progress {
+          font-size: 0.95rem;
           font-weight: 500;
+          color: rgba(0,0,0,0.87);
         }
 
-        ::ng-deep .mat-mdc-text-field-wrapper input {
-          font-weight: 600;
-          font-size: 1.05rem;
+        .skip-btn {
+          color: rgba(0,0,0,0.6);
+        }
+      }
+    }
+
+    .wizard-section {
+      margin-bottom: 24px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      .wizard-section-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--primary-color);
+        font-size: 1rem;
+        font-weight: 500;
+        margin: 0 0 16px 0;
+
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
         }
       }
 
-      .item-row {
+      .full-width {
+        width: 100%;
+      }
+
+      .form-row {
         display: flex;
         gap: 12px;
 
-        .field-qty { flex: 1; min-width: 60px; }
-        .field-unit { flex: 1.5; }
-        .field-price { flex: 1.5; }
+        .flex-1 { flex: 1; }
+        .flex-2 { flex: 2; }
       }
 
-      .field-category { width: 100%; }
+      .selector-field {
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        border: 1px solid rgba(0,0,0,0.12);
+        border-radius: 4px;
+        margin-bottom: 12px;
+        transition: background 0.2s ease;
+
+        &:hover {
+          background: rgba(0,0,0,0.02);
+        }
+
+        .selector-label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: rgba(0,0,0,0.87);
+
+          mat-icon {
+            color: var(--primary-color);
+          }
+        }
+
+        .selector-value {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: var(--primary-color);
+          font-weight: 500;
+        }
+      }
+
+      .expiry-controls {
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+        margin-bottom: 12px;
+
+        .flex-1 { flex: 1; }
+
+        .ai-btn {
+          margin-bottom: 8px;
+          min-width: 60px;
+
+          mat-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+            margin-right: 4px;
+          }
+        }
+      }
+
+      .notification-toggle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-top: 1px solid rgba(0,0,0,0.08);
+
+        .toggle-info {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: rgba(0,0,0,0.87);
+
+          mat-icon {
+            color: var(--primary-color);
+          }
+        }
+      }
+    }
+
+    /* Bottom navigation (fixed) */
+    .wizard-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 16px;
+      background: white;
+      border-top: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+      z-index: 10;
+
+      button {
+        flex: 1;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .spacer {
+        flex: 1;
+      }
     }
 
     /* Done step */
@@ -378,11 +615,6 @@ type Step = 'capture' | 'analyzing' | 'review' | 'adding' | 'done';
         mat-icon { margin-right: 8px; }
       }
     }
-
-    /* mat-form-field density */
-    ::ng-deep .review-item .mat-mdc-form-field-subscript-wrapper {
-      display: none;
-    }
   `]
 })
 export class ReceiptScanComponent implements OnInit {
@@ -394,15 +626,37 @@ export class ReceiptScanComponent implements OnInit {
   addTotal = 0;
   addedCount = 0;
 
+  // Wizard navigation state
+  currentItemIndex = 0;
+  isLoadingAI = false;
+
   private userId: number | null = null;
   private defaultLocationId: number | null = null;
+
+  // Wizard convenience getters
+  get currentItem(): ReviewItem {
+    return this.reviewItems[this.currentItemIndex];
+  }
+  get isFirstItem(): boolean {
+    return this.currentItemIndex === 0;
+  }
+  get isLastItem(): boolean {
+    return this.currentItemIndex === this.reviewItems.length - 1;
+  }
+  get includedCount(): number {
+    return this.reviewItems.filter(i => i.included).length;
+  }
 
   constructor(
     private router: Router,
     private authService: AuthService,
     private inventoryService: InventoryService,
     private receiptScanService: ReceiptScanService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private bottomSheet: MatBottomSheet,
+    private matDialog: MatDialog,
+    private expirationAIService: ExpirationAIService,
+    private imageService: ImageService
   ) {}
 
   async ngOnInit() {
@@ -414,17 +668,6 @@ export class ReceiptScanComponent implements OnInit {
     }
   }
 
-  get selectedCount(): number {
-    return this.reviewItems.filter(i => i.selected).length;
-  }
-
-  selectAll() {
-    this.reviewItems.forEach(i => i.selected = true);
-  }
-
-  deselectAll() {
-    this.reviewItems.forEach(i => i.selected = false);
-  }
 
   async capturePhoto(source: 'camera' | 'gallery') {
     try {
@@ -440,7 +683,10 @@ export class ReceiptScanComponent implements OnInit {
         return;
       }
 
-      const base64 = `data:image/jpeg;base64,${photo.base64String}`;
+      // Detect MIME type from photo format
+      const format = photo.format || 'jpeg'; // Default to jpeg if format not available
+      const mimeType = this.imageService.getMimeTypeFromPath(`photo.${format}`);
+      const base64 = `data:${mimeType};base64,${photo.base64String}`;
       this.step = 'analyzing';
       await this.analyzeReceipt(base64);
     } catch (err: any) {
@@ -448,6 +694,10 @@ export class ReceiptScanComponent implements OnInit {
       console.error('[ReceiptScan] capturePhoto error:', err);
       this.showMessage('Could not open camera. Please try again.');
     }
+  }
+
+  getLocationName(locationId: number): string | undefined {
+    return this.locations.find(l => l.id === locationId)?.name;
   }
 
   private async analyzeReceipt(base64Image: string) {
@@ -459,16 +709,35 @@ export class ReceiptScanComponent implements OnInit {
 
     try {
       const items = await this.receiptScanService.parseReceipt(base64Image, this.userId);
-      this.reviewItems = items.map(item => ({
-        selected: true,
-        name: item.name,
-        quantity: item.quantity,
-        unit: 'piece',
-        totalPrice: item.totalPrice,
-        categoryHint: item.categoryHint,
-        categoryId: this.resolveCategoryId(item.categoryHint)
-      }));
-      this.step = 'review';
+      const today = toLocalDateString(new Date());
+
+      this.reviewItems = items.map(item => {
+        const categoryId = this.resolveCategoryId(item.categoryHint);
+        const expiryDays = this.receiptScanService.getDefaultExpiryDays(item.categoryHint);
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + expiryDays);
+
+        return {
+          included: true,
+          name: item.name,
+          quantity: item.quantity,
+          unit: 'piece',
+          totalPrice: item.totalPrice,
+          categoryHint: item.categoryHint,
+          categoryId,
+          // New fields — auto-filled
+          locationId: this.defaultLocationId ?? 1,
+          purchaseDate: today,
+          expirationDate: toLocalDateString(expiryDate),
+          expireAmount: expiryDays,
+          expireUnit: 'days' as const,
+          notes: '',
+          notificationEnabled: true
+        };
+      });
+
+      this.currentItemIndex = 0;
+      this.step = 'item-wizard';
     } catch (err: any) {
       console.error('[ReceiptScan] analyzeReceipt error:', err);
       this.showMessage(err?.message || 'Failed to parse receipt. Please try again.');
@@ -483,22 +752,114 @@ export class ReceiptScanComponent implements OnInit {
     return other?.id ?? (this.categories[0]?.id ?? 1);
   }
 
-  async addItems() {
-    const selected = this.reviewItems.filter(i => i.selected);
-    if (selected.length === 0) return;
+  // Wizard navigation methods
+  goBack() {
+    if (!this.isFirstItem) {
+      this.currentItemIndex--;
+    }
+  }
 
-    this.addTotal = selected.length;
+  goNext() {
+    if (this.isLastItem) {
+      this.addItems();
+    } else {
+      this.currentItemIndex++;
+    }
+  }
+
+  skipItem() {
+    this.currentItem.included = false;
+    this.goNext();
+  }
+
+  // Open category selector bottom sheet
+  openCategorySelector(item: ReviewItem) {
+    const ref = this.bottomSheet.open(CategorySelectorComponent, {
+      panelClass: 'centered-bottom-sheet'
+    });
+    ref.afterDismissed().subscribe((category: Category) => {
+      if (category) {
+        item.categoryId = category.id!;
+        item.categoryHint = category.name;
+      }
+    });
+  }
+
+  // Open location selector bottom sheet
+  openLocationSelector(item: ReviewItem) {
+    const ref = this.bottomSheet.open(LocationSelectorComponent, {
+      data: { userId: this.userId },
+      panelClass: 'centered-bottom-sheet'
+    });
+    ref.afterDismissed().subscribe((location: Location) => {
+      if (location) {
+        item.locationId = location.id!;
+      }
+    });
+  }
+
+  // AI expiration suggestion
+  async onAISuggest(item: ReviewItem) {
+    if (!this.userId) return;
+    this.isLoadingAI = true;
+    try {
+      const location = this.locations.find(l => l.id === item.locationId);
+      const purchaseDate = new Date(item.purchaseDate);
+
+      const result = await this.expirationAIService.suggestExpiration(
+        item.name,
+        purchaseDate,
+        location?.name || null,
+        this.userId
+      );
+
+      if (!result.days || result.days <= 0) {
+        this.showMessage('AI could not suggest an expiration date. Please set it manually.');
+        return;
+      }
+
+      // Calculate expiry date
+      const expiryDate = new Date(purchaseDate);
+      expiryDate.setDate(expiryDate.getDate() + result.days);
+
+      // Open AI suggestion dialog
+      const dialogRef = this.matDialog.open(AISuggestionDialogComponent, {
+        width: '400px',
+        data: {
+          itemName: item.name,
+          purchaseDate: purchaseDate,
+          suggestedDays: result.days,
+          suggestedExpirationDate: expiryDate,
+          note: result.note || ''
+        } as AISuggestionDialogData
+      });
+
+      dialogRef.afterClosed().subscribe((dialogResult: any) => {
+        if (dialogResult?.accepted) {
+          item.expireAmount = result.days;
+          item.expireUnit = 'days';
+          item.expirationDate = toLocalDateString(expiryDate);
+        }
+      });
+    } catch (error: any) {
+      console.error('[ReceiptScan] AI suggestion error:', error);
+      this.showMessage(error?.message || 'AI suggestion failed. Please try again.');
+    } finally {
+      this.isLoadingAI = false;
+    }
+  }
+
+  async addItems() {
+    const included = this.reviewItems.filter(i => i.included);
+    if (included.length === 0) return;
+
+    this.addTotal = included.length;
     this.addProgress = 0;
     this.step = 'adding';
 
-    const today = toLocalDateString(new Date());
     let addedCount = 0;
 
-    for (const item of selected) {
-      const expiryDays = this.receiptScanService.getDefaultExpiryDays(item.categoryHint);
-      const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + expiryDays);
-
+    for (const item of included) {
       // Calculate unit price from total price and quantity
       // If user entered "2 bottles for $10", unit price is $5
       const unitPrice = (item.totalPrice && item.quantity > 0)
@@ -511,11 +872,12 @@ export class ReceiptScanComponent implements OnInit {
         categoryId: item.categoryId,
         quantity: item.quantity,
         unit: item.unit,
-        purchaseDate: today,
-        expirationDate: toLocalDateString(expiryDate),
-        locationId: this.defaultLocationId ?? 1,
+        purchaseDate: item.purchaseDate,
+        expirationDate: item.expirationDate,
+        locationId: item.locationId,
         price: unitPrice,
-        notificationEnabled: true,
+        notes: item.notes || undefined,
+        notificationEnabled: item.notificationEnabled,
         notificationDaysBefore: 3
       };
 

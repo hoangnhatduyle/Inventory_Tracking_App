@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { DatabaseService } from './database.service';
 import { InventoryService } from './inventory.service';
 import { DashboardStatistics, CategoryStats, LocationStats, WastedItemStats, Recipe } from '../models/statistics.model';
+import { isPastDate, daysFromNow, daysBetween } from '../utils/date.utils';
 
 @Injectable({
   providedIn: 'root'
@@ -18,11 +19,8 @@ export class StatisticsService {
       const categories = await this.inventoryService.getCategories();
       const locations = await this.inventoryService.getLocations(userId);
 
-      const now = new Date();
-      const threeDaysLater = new Date(now);
-      threeDaysLater.setDate(now.getDate() + 3);
-      const weekLater = new Date(now);
-      weekLater.setDate(now.getDate() + 7);
+      const threeDaysDateStr = daysFromNow(3);
+      const sevenDaysDateStr = daysFromNow(7);
 
       let totalValue = 0;
       let expiringIn3Days = 0;
@@ -33,8 +31,6 @@ export class StatisticsService {
       const locationMap = new Map<number, number>();
 
       items.forEach(item => {
-        const expirationDate = new Date(item.expirationDate);
-
         // Calculate total value using current remaining quantity (after usage tracking)
         // Falls back to original quantity if usage not tracked
         const quantityForValue = item.currentQuantity !== undefined && item.currentQuantity !== null
@@ -45,12 +41,12 @@ export class StatisticsService {
           totalValue += item.price * quantityForValue;
         }
 
-        // Count expiring items
-        if (expirationDate < now) {
+        // Count expiring items using timezone-safe date comparison
+        if (isPastDate(item.expirationDate)) {
           expiredItems++;
-        } else if (expirationDate <= threeDaysLater) {
+        } else if (daysBetween(item.expirationDate, threeDaysDateStr) <= 0) {
           expiringIn3Days++;
-        } else if (expirationDate <= weekLater) {
+        } else if (daysBetween(item.expirationDate, sevenDaysDateStr) <= 0) {
           expiringInWeek++;
         }
 

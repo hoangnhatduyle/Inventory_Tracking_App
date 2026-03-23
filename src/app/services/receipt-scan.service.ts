@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { DatabaseService } from './database.service';
 import { ApiConfigService } from './api-config.service';
+import { toLocalDateString } from '../utils/date.utils';
 
 export interface ReceiptItem {
   name: string;
@@ -41,6 +42,7 @@ Return ONLY the JSON array, no other text.`;
 export class ReceiptScanService {
   private readonly OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
   private readonly MODEL = 'gpt-5-mini';
+  private readonly MONTHLY_LIMIT = 1000; // Same limit as expiration AI service
 
   constructor(
     private databaseService: DatabaseService,
@@ -51,7 +53,38 @@ export class ReceiptScanService {
     return DEFAULT_EXPIRY_DAYS[categoryHint] ?? DEFAULT_EXPIRY_DAYS['Other'];
   }
 
+  /**
+   * Check if user has reached their monthly receipt scan limit
+   */
+  private async checkRateLimit(userId: number): Promise<{ allowed: boolean; usage: number; limit: number }> {
+    try {
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const firstDayStr = toLocalDateString(firstDayOfMonth);
+
+      // Query usage for current month (only count successful requests where itemCount > 0)
+      const result = await this.databaseService.query(
+        `SELECT COUNT(*) as count FROM ai_usage_log WHERE user_id = ? AND request_type = 'receipt_scan' AND created_at >= ? AND response_days IS NOT NULL`,
+        [userId, firstDayStr]
+      );
+
+      const usage = result.values?.[0]?.count || 0;
+      const allowed = usage < this.MONTHLY_LIMIT;
+
+      return { allowed, usage, limit: this.MONTHLY_LIMIT };
+    } catch (error) {
+      console.error('Error checking receipt scan rate limit:', error);
+      return { allowed: true, usage: 0, limit: this.MONTHLY_LIMIT }; // Allow on error
+    }
+  }
+
   async parseReceipt(base64Image: string, userId: number): Promise<ReceiptItem[]> {
+    // Check rate limit
+    const rateLimitCheck = await this.checkRateLimit(userId);
+    if (!rateLimitCheck.allowed) {
+      throw new Error(`Monthly receipt scan limit reached (${rateLimitCheck.limit} scans/month). Try again next month.`);
+    }
+
     if (!this.apiConfigService.hasOpenaiApiKey()) {
       throw new Error('Please configure your OpenAI API key in Settings → Features → API Configuration');
     }

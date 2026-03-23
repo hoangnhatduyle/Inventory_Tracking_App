@@ -176,6 +176,7 @@ export class InventoryService {
   }
 
   async deleteItems(itemIds: number[]): Promise<boolean> {
+    let transactionStarted = false;
     try {
       // Delete images for each item
       for (const itemId of itemIds) {
@@ -190,25 +191,40 @@ export class InventoryService {
           }
         }
       }
-      
+
+      // Begin transaction for database deletions
+      await this.db.beginTransaction();
+      transactionStarted = true;
+
       // Delete all related data from database
       const placeholders = itemIds.map(() => '?').join(',');
       const deleteImagesQuery = `DELETE FROM item_images WHERE item_id IN (${placeholders})`;
       await this.db.run(deleteImagesQuery, itemIds);
-      
+
       const deleteBatchesQuery = `DELETE FROM inventory_batches WHERE item_id IN (${placeholders})`;
       await this.db.run(deleteBatchesQuery, itemIds);
-      
+
       const deleteUsageHistoryQuery = `DELETE FROM usage_history WHERE item_id IN (${placeholders})`;
       await this.db.run(deleteUsageHistoryQuery, itemIds);
-      
+
       // Delete items
       const query = `DELETE FROM inventory_items WHERE id IN (${placeholders})`;
       await this.db.run(query, itemIds);
-      
+
+      await this.db.commit();
+      transactionStarted = false;
+
       console.log(`Deleted ${itemIds.length} item(s) with their images, batches, and usage history`);
       return true;
     } catch (error) {
+      // Rollback transaction if it was started
+      if (transactionStarted) {
+        try {
+          await this.db.rollback();
+        } catch (rollbackErr) {
+          console.error('Error rolling back transaction:', rollbackErr);
+        }
+      }
       console.error('Error deleting items:', error);
       return false;
     }
@@ -233,7 +249,15 @@ export class InventoryService {
       // valueLost = price_per_unit × quantity_wasted
       const pricePerUnit = item.price || 0;
 
-      // Insert into wasted_items table (only the remaining quantity is being wasted)
+      // Delete the item FIRST (this will also delete images via deleteItem method)
+      const deleteSuccess = await this.deleteItem(itemId);
+
+      if (!deleteSuccess) {
+        console.error(`Failed to delete item ${itemId} when marking as wasted`);
+        return false;
+      }
+
+      // Only insert into wasted_items table AFTER successful deletion
       const insertQuery = `
         INSERT INTO wasted_items (user_id, item_name, category_id, quantity, unit, price, wasted_date)
         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -247,14 +271,6 @@ export class InventoryService {
         pricePerUnit,
         new Date().toISOString()
       ]);
-
-      // Delete the item (this will also delete images via deleteItem method)
-      const deleteSuccess = await this.deleteItem(itemId);
-
-      if (!deleteSuccess) {
-        console.error(`Failed to delete item ${itemId} after marking as wasted`);
-        return false;
-      }
 
       console.log(`Marked item ${itemId} as wasted and cleaned up images`);
       return true;
@@ -627,13 +643,15 @@ export class InventoryService {
     }
   }
 
-  async getLowStockItems(userId: number, threshold: number = 20): Promise<InventoryItem[]> {
+  async getLowStockItems(userId: number, globalThreshold: number = 20): Promise<InventoryItem[]> {
     try {
       const items = await this.getItems(userId);
       return items.filter(item => {
         if (item.initialQuantity && item.currentQuantity !== undefined) {
           const percentage = (item.currentQuantity / item.initialQuantity) * 100;
-          return percentage <= threshold && percentage > 0;
+          // Use per-item threshold if set, otherwise fall back to global threshold
+          const itemThreshold = item.lowStockThreshold ?? globalThreshold;
+          return percentage <= itemThreshold && percentage > 0;
         }
         return false;
       });

@@ -11,7 +11,6 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { DatabaseService } from './services/database.service';
 import { AuthService } from './services/auth.service';
 import { ConsoleLoggerService } from './services/console-logger.service';
-import { QuickInstructionsDialog } from './components/dashboard/dashboard';
 
 @Component({
   selector: 'app-root',
@@ -71,12 +70,5 @@ export class App implements OnInit {
     // authService.logout() emits to authState$, which updates isAuthenticated via subscription
     await this.authService.logout();
     this.router.navigate(['/login']);
-  }
-
-  showQuickInstructions() {
-    this.dialog.open(QuickInstructionsDialog, {
-      width: '600px',
-      panelClass: 'quick-instructions-dialog'
-    });
   }
 }

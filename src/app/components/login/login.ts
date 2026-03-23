@@ -87,23 +87,28 @@ export class Login {
     }
 
     this.isLoading = true;
-    const result = await this.authService.register(
-      this.registerUsername,
-      this.registerPassword,
-      this.registerEmail
-    );
-    this.isLoading = false;
+    try {
+      const result = await this.authService.register(
+        this.registerUsername,
+        this.registerPassword,
+        this.registerEmail
+      );
 
-    if (result.success) {
-      this.showMessage('Registration successful! Please login.');
-      // Clear register form
-      this.registerUsername = '';
-      this.registerPassword = '';
-      this.registerConfirmPassword = '';
-      this.registerEmail = '';
-      this.switchToLogin();
-    } else {
-      this.showMessage(result.message);
+      if (result.success) {
+        this.showMessage('Registration successful! Please login.');
+        // Clear register form
+        this.registerUsername = '';
+        this.registerPassword = '';
+        this.registerConfirmPassword = '';
+        this.registerEmail = '';
+        this.switchToLogin();
+      } else {
+        this.showMessage(result.message);
+      }
+    } catch (error) {
+      this.showMessage('Registration failed: ' + (error as Error).message);
+    } finally {
+      this.isLoading = false;
     }
   }
 

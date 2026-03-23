@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { DatabaseService } from './database.service';
 import { WastedItem, WasteStatistics, WasteCategoryStats, WasteMonthStats } from '../models/waste-tracking.model';
+import { parseLocalDate } from '../utils/date.utils';
 
 @Injectable({
   providedIn: 'root'
@@ -88,10 +89,12 @@ export class WasteTrackingService {
       // Waste by month (last 6 months)
       const monthMap = new Map<string, WasteMonthStats>();
       wastedItems.forEach(item => {
-        const date = new Date(item.wastedDate);
+        // Extract YYYY-MM-DD from ISO string and parse with timezone safety
+        const dateStr = item.wastedDate.split('T')[0]; // Get YYYY-MM-DD part
+        const date = parseLocalDate(dateStr);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        
+
         if (!monthMap.has(monthKey)) {
           monthMap.set(monthKey, {
             month: monthName,

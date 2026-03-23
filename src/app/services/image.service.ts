@@ -143,7 +143,7 @@ export class ImageService {
     }
   }
 
-  private getMimeTypeFromPath(filePath: string): string {
+  getMimeTypeFromPath(filePath: string): string {
     const ext = filePath.toLowerCase().split('.').pop() || 'jpg';
     const mimeMap: { [key: string]: string } = {
       jpg: 'image/jpeg',

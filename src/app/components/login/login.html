@@ -3,7 +3,7 @@
     <!-- Logo and Brand -->
     <div class="brand-header">
       <div class="logo">
-        <mat-icon class="logo-icon">art_track</mat-icon>
+        <mat-icon class="logo-icon">inventory_2</mat-icon>
         <span class="brand-name">Inventory<span class="brand-highlight">Tracking</span></span>
       </div>
     </div>
@@ -19,11 +19,11 @@
           <div class="form-group">
             <label class="form-label">Username</label>
             <div class="input-wrapper">
-              <mat-icon class="input-icon">alternate_email</mat-icon>
-              <input 
-                type="text" 
-                class="form-input" 
-                [(ngModel)]="loginUsername" 
+              <mat-icon class="input-icon">person</mat-icon>
+              <input
+                type="text"
+                class="form-input"
+                [(ngModel)]="loginUsername"
                 placeholder="Enter your username"
                 (keyup.enter)="onLogin()"
               />
@@ -34,10 +34,11 @@
           <div class="form-group">
             <label class="form-label">Password</label>
             <div class="input-wrapper">
-              <input 
-                type="password" 
-                class="form-input" 
-                [(ngModel)]="loginPassword" 
+              <mat-icon class="input-icon">lock</mat-icon>
+              <input
+                type="password"
+                class="form-input"
+                [(ngModel)]="loginPassword"
                 placeholder="Enter your password"
                 (keyup.enter)="onLogin()"
               />
@@ -117,12 +118,13 @@
           <div class="form-group">
             <label class="form-label">Confirm Password</label>
             <div class="input-wrapper">
-              <mat-icon class="input-icon">lock</mat-icon>
-              <input 
-                type="password" 
-                class="form-input" 
-                [(ngModel)]="registerConfirmPassword" 
+              <mat-icon class="input-icon">lock_outline</mat-icon>
+              <input
+                type="password"
+                class="form-input"
+                [(ngModel)]="registerConfirmPassword"
                 placeholder="Confirm password"
+                (keyup.enter)="onRegister()"
               />
             </div>
           </div>
