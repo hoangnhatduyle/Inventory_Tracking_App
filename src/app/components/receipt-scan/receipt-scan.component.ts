@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -13,11 +13,14 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatBottomSheet, MatBottomSheetModule } from '@angular/material/bottom-sheet';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
+import { MatButtonToggleModule, MatButtonToggleChange } from '@angular/material/button-toggle';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatChipsModule } from '@angular/material/chips';
 import { AuthService } from '../../services/auth.service';
 import { InventoryService } from '../../services/inventory.service';
 import { ReceiptScanService } from '../../services/receipt-scan.service';
@@ -47,7 +50,7 @@ interface ReviewItem {
   notificationEnabled: boolean;
 }
 
-type Step = 'capture' | 'analyzing' | 'item-wizard' | 'adding' | 'done';
+type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' | 'done';
 
 @Component({
   selector: 'app-receipt-scan',
@@ -69,7 +72,10 @@ type Step = 'capture' | 'analyzing' | 'item-wizard' | 'adding' | 'done';
     MatProgressBarModule,
     MatSlideToggleModule,
     MatDatepickerModule,
-    MatNativeDateModule
+    MatNativeDateModule,
+    MatButtonToggleModule,
+    MatTooltipModule,
+    MatChipsModule
   ],
   template: `
     <div class="receipt-scan-container">
@@ -80,9 +86,29 @@ type Step = 'capture' | 'analyzing' | 'item-wizard' | 'adding' | 'done';
           <mat-icon>arrow_back</mat-icon>
         </button>
         <h1>Scan Receipt</h1>
-        <div class="step-indicator" *ngIf="step === 'item-wizard'">
-          <span class="step-count">Item {{ currentItemIndex + 1 }} / {{ reviewItems.length }}</span>
+        @if (step === 'item-wizard') {
+        <div class="step-indicator">
+          @if (reviewMode === 'wizard') {
+          <span class="step-count">
+            Item {{ currentItemIndex + 1 }} / {{ reviewItems.length }}
+            @if (!currentItem.included) { <span class="skipped-label"> · Skipped</span> }
+          </span>
+          }
+          @if (reviewMode === 'table') {
+          <span class="step-count">
+            {{ includedCount }} of {{ reviewItems.length }} items to add
+          </span>
+          }
+          <mat-button-toggle-group [value]="reviewMode" (change)="selectMode($event.value)" class="mode-toggle">
+            <mat-button-toggle value="wizard" [matTooltip]="'Item Wizard'">
+              <mat-icon>view_carousel</mat-icon>
+            </mat-button-toggle>
+            <mat-button-toggle value="table" [matTooltip]="'Table View'">
+              <mat-icon>table_rows</mat-icon>
+            </mat-button-toggle>
+          </mat-button-toggle-group>
         </div>
+        }
       </div>
 
       <!-- Step: Capture -->
@@ -112,13 +138,43 @@ type Step = 'capture' | 'analyzing' | 'item-wizard' | 'adding' | 'done';
         <p class="hint">AI is parsing your items. This usually takes 5–15 seconds.</p>
       </div>
 
+      <!-- Step: Mode Selection -->
+      <div *ngIf="step === 'mode-select'" class="step-mode-select">
+        <h2>How would you like to review your items?</h2>
+        <p class="mode-hint">We found <strong>{{ reviewItems.length }}</strong> item{{ reviewItems.length !== 1 ? 's' : '' }} on your receipt.</p>
+
+        <div class="mode-options">
+          <div class="mode-card wizard-mode" (click)="selectMode('wizard')">
+            <mat-icon>view_carousel</mat-icon>
+            <h3>Item Wizard</h3>
+            <p>Step through each item one by one</p>
+          </div>
+
+          <div class="mode-card table-mode" (click)="selectMode('table')">
+            <mat-icon>table_rows</mat-icon>
+            <h3>Table View</h3>
+            <p>See and edit all items at once</p>
+          </div>
+        </div>
+      </div>
+
       <!-- Step: Item Wizard -->
       <div *ngIf="step === 'item-wizard'" class="step-item-wizard">
+        <!-- Wizard Mode -->
+        @if (reviewMode === 'wizard') {
         <!-- Progress bar -->
         <mat-progress-bar mode="determinate" [value]="(currentItemIndex + 1) / reviewItems.length * 100" class="wizard-progress"></mat-progress-bar>
 
         <!-- Item card -->
         <div class="wizard-card">
+          @if (!currentItem.included) {
+          <div class="skipped-banner">
+            <mat-icon>do_not_disturb</mat-icon>
+            <span>This item is marked as skipped — it won't be added to inventory.</span>
+            <button mat-button color="primary" (click)="includeCurrentItem()">Un-skip</button>
+          </div>
+          }
+
           <div class="wizard-item-header">
             <span class="item-progress">Item {{ currentItemIndex + 1 }} of {{ reviewItems.length }}</span>
             <button mat-icon-button (click)="skipItem()" class="skip-btn">
@@ -272,16 +328,208 @@ type Step = 'capture' | 'analyzing' | 'item-wizard' | 'adding' | 'done';
             </div>
           </div>
         </div>
+        }
+
+        <!-- Table Mode -->
+        @if (reviewMode === 'table') {
+        <div class="table-view-container">
+          <div class="table-wrapper">
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th class="col-include">Include</th>
+                  <th class="col-name">Name</th>
+                  <th class="col-qty">Qty</th>
+                  <th class="col-unit">Unit</th>
+                  <th class="col-price">Price ($)</th>
+                  <th class="col-category">Category</th>
+                  <th class="col-location">Location</th>
+                  <th class="col-purchase">Purchase</th>
+                  <th class="col-expire-in">Expires In</th>
+                  <th class="col-expiry">Expiry</th>
+                  <th class="col-notes">Notes</th>
+                  <th class="col-notify">Notify</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of reviewItems; let idx = $index; track idx) {
+                <tr [class.row-skipped]="!item.included">
+                  <!-- Include/Skip -->
+                  <td class="col-include">
+                    <mat-chip-set>
+                      <mat-chip [class.included]="item.included" [class.skipped]="!item.included" (click)="toggleItemInclusion(item)" class="skip-chip">
+                        {{ item.included ? '✓' : '✕' }}
+                      </mat-chip>
+                    </mat-chip-set>
+                  </td>
+
+                  <!-- Name -->
+                  <td class="col-name" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'name'" (click)="startEdit(idx, 'name')">
+                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'name') {
+                      <div class="cell-edit">
+                        <input type="text" [(ngModel)]="editingValue" class="edit-input" (click)="$event.stopPropagation()">
+                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
+                          <mat-icon class="confirm-icon">check</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
+                          <mat-icon class="cancel-icon">close</mat-icon>
+                        </button>
+                      </div>
+                    } @else {
+                      <span class="cell-value">{{ item.name }}</span>
+                    }
+                  </td>
+
+                  <!-- Quantity -->
+                  <td class="col-qty" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'quantity'" (click)="startEdit(idx, 'quantity')">
+                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'quantity') {
+                      <div class="cell-edit">
+                        <input type="number" [(ngModel)]="editingValue" class="edit-input" (click)="$event.stopPropagation()">
+                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
+                          <mat-icon class="confirm-icon">check</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
+                          <mat-icon class="cancel-icon">close</mat-icon>
+                        </button>
+                      </div>
+                    } @else {
+                      <span class="cell-value">{{ item.quantity }}</span>
+                    }
+                  </td>
+
+                  <!-- Unit -->
+                  <td class="col-unit" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'unit'" (click)="startEdit(idx, 'unit')">
+                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'unit') {
+                      <div class="cell-edit">
+                        <select [(ngModel)]="editingValue" class="edit-select" (click)="$event.stopPropagation()">
+                          <option value="piece">piece</option>
+                          <option value="kg">kg</option>
+                          <option value="g">g</option>
+                          <option value="lbs">lbs</option>
+                          <option value="oz">oz</option>
+                          <option value="liter">liter</option>
+                          <option value="ml">ml</option>
+                          <option value="pack">pack</option>
+                          <option value="box">box</option>
+                          <option value="can">can</option>
+                          <option value="bottle">bottle</option>
+                          <option value="bag">bag</option>
+                        </select>
+                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
+                          <mat-icon class="confirm-icon">check</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
+                          <mat-icon class="cancel-icon">close</mat-icon>
+                        </button>
+                      </div>
+                    } @else {
+                      <span class="cell-value">{{ item.unit }}</span>
+                    }
+                  </td>
+
+                  <!-- Price -->
+                  <td class="col-price" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'totalPrice'" (click)="startEdit(idx, 'totalPrice')">
+                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'totalPrice') {
+                      <div class="cell-edit">
+                        <input type="number" [(ngModel)]="editingValue" class="edit-input" (click)="$event.stopPropagation()">
+                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
+                          <mat-icon class="confirm-icon">check</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
+                          <mat-icon class="cancel-icon">close</mat-icon>
+                        </button>
+                      </div>
+                    } @else {
+                      <span class="cell-value">{{ '$' }}{{ item.totalPrice | number: '1.2-2' }}</span>
+                    }
+                  </td>
+
+                  <!-- Category -->
+                  <td class="col-category">
+                    <span class="cell-value cell-selector" (click)="$event.stopPropagation(); openCategorySelector(item)">
+                      {{ item.categoryHint }} <mat-icon>edit</mat-icon>
+                    </span>
+                  </td>
+
+                  <!-- Location -->
+                  <td class="col-location">
+                    <span class="cell-value cell-selector" (click)="$event.stopPropagation(); openLocationSelector(item)">
+                      {{ getLocationName(item.locationId) }} <mat-icon>edit</mat-icon>
+                    </span>
+                  </td>
+
+                  <!-- Purchase Date -->
+                  <td class="col-purchase">
+                    <span class="cell-value">{{ item.purchaseDate }}</span>
+                  </td>
+
+                  <!-- Expire Amount -->
+                  <td class="col-expire-in editable-cell" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'expireAmount'" (click)="startEdit(idx, 'expireAmount')">
+                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'expireAmount') {
+                      <div class="cell-edit">
+                        <input type="number" [(ngModel)]="editingValue" class="edit-input" (click)="$event.stopPropagation()">
+                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
+                          <mat-icon class="confirm-icon">check</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
+                          <mat-icon class="cancel-icon">close</mat-icon>
+                        </button>
+                      </div>
+                    } @else {
+                      <span class="cell-value">
+                        {{ item.expireAmount }} {{ item.expireUnit }}
+                        <mat-icon class="edit-indicator">edit</mat-icon>
+                      </span>
+                    }
+                  </td>
+
+                  <!-- Expiry Date -->
+                  <td class="col-expiry">
+                    <span class="cell-value">{{ item.expirationDate }}</span>
+                  </td>
+
+                  <!-- Notes -->
+                  <td class="col-notes editable-cell" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'notes'" (click)="startEdit(idx, 'notes')">
+                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'notes') {
+                      <div class="cell-edit">
+                        <input type="text" [(ngModel)]="editingValue" class="edit-input" (click)="$event.stopPropagation()">
+                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
+                          <mat-icon class="confirm-icon">check</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
+                          <mat-icon class="cancel-icon">close</mat-icon>
+                        </button>
+                      </div>
+                    } @else {
+                      <span class="cell-value">
+                        {{ item.notes || '—' }}
+                        <mat-icon class="edit-indicator">edit</mat-icon>
+                      </span>
+                    }
+                  </td>
+
+                  <!-- Notifications -->
+                  <td class="col-notify">
+                    <mat-slide-toggle [(ngModel)]="item.notificationEnabled" (click)="$event.stopPropagation()" color="primary"></mat-slide-toggle>
+                  </td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+        }
 
         <!-- Bottom navigation (fixed) -->
+        @if (reviewMode === 'wizard') {
         <div class="wizard-nav">
           <button mat-button (click)="goBack()" [disabled]="isFirstItem">
             <mat-icon>arrow_back</mat-icon>
             Back
           </button>
-          <button mat-button (click)="skipItem()">
-            <mat-icon>skip_next</mat-icon>
-            Skip
+          <button mat-button (click)="onSkipToggle()" [class.skipped]="!currentItem.included">
+            <mat-icon>{{ currentItem.included ? 'skip_next' : 'undo' }}</mat-icon>
+            {{ currentItem.included ? 'Skip' : 'Un-skip' }}
           </button>
           <span class="spacer"></span>
           <button mat-raised-button color="primary" (click)="goNext()">
@@ -289,6 +537,16 @@ type Step = 'capture' | 'analyzing' | 'item-wizard' | 'adding' | 'done';
             <mat-icon>{{ isLastItem ? 'check' : 'arrow_forward' }}</mat-icon>
           </button>
         </div>
+        }
+        @if (reviewMode === 'table') {
+        <div class="wizard-nav table-nav">
+          <span class="spacer"></span>
+          <button mat-raised-button color="primary" (click)="addItems()">
+            <mat-icon>check</mat-icon>
+            Add All ({{ includedCount }})
+          </button>
+        </div>
+        }
       </div>
 
       <!-- Step: Adding -->
@@ -615,6 +873,339 @@ type Step = 'capture' | 'analyzing' | 'item-wizard' | 'adding' | 'done';
         mat-icon { margin-right: 8px; }
       }
     }
+
+    /* Mode selection screen */
+    .step-mode-select {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      padding: 2rem;
+      min-height: 100%;
+
+      h2 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 500;
+        text-align: center;
+      }
+
+      .mode-hint {
+        margin: 0;
+        color: rgba(0, 0, 0, 0.6);
+        text-align: center;
+        strong { color: var(--primary-color, #4caf50); }
+      }
+
+      .mode-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        width: 100%;
+        max-width: 600px;
+      }
+    }
+
+    .mode-card {
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 2rem 1.5rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+
+      &:hover {
+        border-color: var(--primary-color, #4caf50);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+      }
+
+      mat-icon {
+        font-size: 48px;
+        width: 48px;
+        height: 48px;
+        color: var(--primary-color, #4caf50);
+      }
+
+      h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 500;
+      }
+
+      p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: rgba(0, 0, 0, 0.6);
+      }
+    }
+
+    /* Datatable view styles */
+    .table-view-container {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 240px);
+      overflow: hidden;
+    }
+
+    .table-wrapper {
+      flex: 1;
+      overflow-x: auto;
+      overflow-y: auto;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      background: white;
+    }
+
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+
+      thead {
+        position: sticky;
+        top: 0;
+        background: #f5f5f5;
+        border-bottom: 2px solid #e0e0e0;
+        z-index: 10;
+
+        th {
+          padding: 12px 8px;
+          text-align: left;
+          font-weight: 600;
+          color: rgba(0, 0, 0, 0.87);
+          white-space: nowrap;
+          border-right: 1px solid #e0e0e0;
+
+          &:last-child {
+            border-right: none;
+          }
+        }
+      }
+
+      tbody tr {
+        border-bottom: 1px solid #e0e0e0;
+        transition: background-color 0.2s;
+
+        &:hover {
+          background: #fafafa;
+        }
+
+        &.row-skipped {
+          opacity: 0.65;
+          background: #f5f5f5;
+
+          .cell-value {
+            text-decoration: line-through;
+            color: rgba(0, 0, 0, 0.4);
+          }
+        }
+      }
+
+      td {
+        padding: 10px 8px;
+        border-right: 1px solid #e0e0e0;
+        vertical-align: middle;
+
+        &:last-child {
+          border-right: none;
+        }
+
+        &.editing {
+          background: #fffbea;
+          padding: 4px;
+        }
+
+        .cell-value {
+          display: block;
+          padding: 6px 4px;
+          cursor: pointer;
+          user-select: none;
+          color: rgba(0, 0, 0, 0.87);
+
+          &.cell-selector {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--primary-color, #4caf50);
+
+            mat-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+              opacity: 0.6;
+            }
+
+            &:hover {
+              text-decoration: underline;
+            }
+          }
+        }
+
+        .cell-edit {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+
+          .edit-input {
+            flex: 1;
+            padding: 4px 6px;
+            border: 1px solid var(--primary-color, #4caf50);
+            border-radius: 4px;
+            font-size: 0.9rem;
+            min-width: 60px;
+          }
+
+          .edit-select {
+            flex: 1;
+            padding: 4px 6px;
+            border: 1px solid var(--primary-color, #4caf50);
+            border-radius: 4px;
+            font-size: 0.9rem;
+            min-width: 60px;
+          }
+
+          .edit-buttons {
+            display: flex;
+            gap: 2px;
+
+            button {
+              padding: 0;
+              min-width: 32px;
+              height: 32px;
+
+              mat-icon {
+                font-size: 18px;
+                width: 18px;
+                height: 18px;
+
+                &.confirm-icon {
+                  color: #4caf50;
+                }
+
+                &.cancel-icon {
+                  color: #f44336;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      /* Editable cell styling */
+      td.editable-cell {
+        position: relative;
+        background: linear-gradient(135deg, rgba(76, 175, 80, 0.03) 0%, transparent 100%);
+
+        &:hover {
+          background: rgba(76, 175, 80, 0.08);
+        }
+
+        .cell-value {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 6px;
+
+          .edit-indicator {
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
+            color: var(--primary-color, #4caf50);
+            opacity: 0;
+            transition: opacity 0.2s;
+          }
+        }
+
+        &:hover .edit-indicator {
+          opacity: 0.7;
+        }
+
+        &.editing {
+          background: #fffbea !important;
+        }
+      }
+
+      /* Column widths */
+      .col-include { width: 80px; }
+      .col-name { width: 120px; }
+      .col-qty { width: 60px; }
+      .col-unit { width: 70px; }
+      .col-price { width: 80px; }
+      .col-category { width: 100px; }
+      .col-location { width: 100px; }
+      .col-purchase { width: 100px; }
+      .col-expire-in { width: 90px; }
+      .col-expiry { width: 90px; }
+      .col-notes { width: 120px; }
+      .col-notify { width: 60px; }
+    }
+
+    .skip-chip {
+      cursor: pointer;
+      min-width: 50px;
+      font-size: 0.75rem;
+      padding: 2px 8px !important;
+
+      &.included {
+        background: #e8f5e9 !important;
+        color: #2e7d32 !important;
+      }
+
+      &.skipped {
+        background: #eeeeee !important;
+        color: rgba(0, 0, 0, 0.5) !important;
+      }
+    }
+
+    .table-nav {
+      justify-content: flex-end;
+    }
+
+    /* Skip banner */
+    .skipped-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #fff3e0;
+      border: 1px solid #ffb74d;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      color: #e65100;
+
+      mat-icon {
+        color: #e65100;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+      }
+
+      span {
+        flex: 1;
+      }
+
+      button {
+        margin-left: auto;
+        flex-shrink: 0;
+      }
+    }
+
+    /* Mode toggle in header */
+    .mode-toggle {
+      margin-left: auto;
+    }
+
+    .skipped-label {
+      color: rgba(0, 0, 0, 0.5);
+      font-weight: 400;
+    }
   `]
 })
 export class ReceiptScanComponent implements OnInit {
@@ -629,6 +1220,14 @@ export class ReceiptScanComponent implements OnInit {
   // Wizard navigation state
   currentItemIndex = 0;
   isLoadingAI = false;
+
+  // Mode selection
+  reviewMode: 'wizard' | 'table' = 'wizard';
+  expandedItemIndex: number | null = null;
+
+  // Table editing state
+  editingCell: { rowIndex: number; field: keyof ReviewItem } | null = null;
+  editingValue: any = null;
 
   private userId: number | null = null;
   private defaultLocationId: number | null = null;
@@ -737,7 +1336,9 @@ export class ReceiptScanComponent implements OnInit {
       });
 
       this.currentItemIndex = 0;
-      this.step = 'item-wizard';
+      this.reviewMode = 'wizard';
+      this.expandedItemIndex = null;
+      this.step = 'mode-select';
     } catch (err: any) {
       console.error('[ReceiptScan] analyzeReceipt error:', err);
       this.showMessage(err?.message || 'Failed to parse receipt. Please try again.');
@@ -768,8 +1369,110 @@ export class ReceiptScanComponent implements OnInit {
   }
 
   skipItem() {
-    this.currentItem.included = false;
-    this.goNext();
+    const dialogRef = this.matDialog.open(SkipItemConfirmationDialog, {
+      width: '400px',
+      data: { itemName: this.currentItem.name }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result === true) {
+        this.currentItem.included = false;
+        this.goNext();
+      }
+    });
+  }
+
+  // Mode selection
+  selectMode(mode: 'wizard' | 'table' | any) {
+    // Handle both direct calls and MatButtonToggleChange events
+    const selectedMode = typeof mode === 'string' ? mode : mode.value;
+    this.reviewMode = selectedMode;
+    this.expandedItemIndex = null;
+    this.step = 'item-wizard';
+  }
+
+  // Toggle item expansion in table view
+  toggleExpand(index: number) {
+    this.expandedItemIndex = this.expandedItemIndex === index ? null : index;
+  }
+
+  // Toggle item inclusion in table view (no dialog)
+  toggleItemInclusion(item: ReviewItem) {
+    item.included = !item.included;
+  }
+
+  // Un-skip current item in wizard view
+  includeCurrentItem() {
+    this.currentItem.included = true;
+  }
+
+  // Route skip/un-skip based on current state
+  onSkipToggle() {
+    if (this.currentItem.included) {
+      this.skipItem(); // open confirmation dialog
+    } else {
+      this.includeCurrentItem(); // immediate un-skip
+    }
+  }
+
+  // Table view cell editing methods
+  startEdit(rowIndex: number, field: keyof ReviewItem) {
+    const item = this.reviewItems[rowIndex];
+    if (!item) return;
+    this.editingCell = { rowIndex, field };
+    this.editingValue = item[field];
+  }
+
+  cancelEdit() {
+    this.editingCell = null;
+    this.editingValue = null;
+  }
+
+  confirmEdit() {
+    if (!this.editingCell) return;
+    const item = this.reviewItems[this.editingCell.rowIndex];
+    if (item) {
+      (item as any)[this.editingCell.field] = this.editingValue;
+
+      // If editing expireAmount or expireUnit, recalculate expiration date
+      if (this.editingCell.field === 'expireAmount' || this.editingCell.field === 'expireUnit') {
+        this.updateExpirationDate(item);
+      }
+    }
+    this.cancelEdit();
+  }
+
+  // Calculate and update expiration date based on purchase date and expiry offset
+  private updateExpirationDate(item: ReviewItem) {
+    if (!item.purchaseDate || !item.expireAmount) return;
+
+    const purchaseDate = new Date(item.purchaseDate);
+    let daysToAdd = item.expireAmount;
+
+    // Convert to days based on unit
+    switch (item.expireUnit) {
+      case 'weeks':
+        daysToAdd = item.expireAmount * 7;
+        break;
+      case 'months':
+        daysToAdd = item.expireAmount * 30;
+        break;
+      case 'years':
+        daysToAdd = item.expireAmount * 365;
+        break;
+      case 'days':
+      default:
+        daysToAdd = item.expireAmount;
+    }
+
+    const expiryDate = new Date(purchaseDate);
+    expiryDate.setDate(expiryDate.getDate() + daysToAdd);
+
+    // Format as YYYY-MM-DD
+    const year = expiryDate.getFullYear();
+    const month = String(expiryDate.getMonth() + 1).padStart(2, '0');
+    const day = String(expiryDate.getDate()).padStart(2, '0');
+    item.expirationDate = `${year}-${month}-${day}`;
   }
 
   // Open category selector bottom sheet
@@ -896,5 +1599,112 @@ export class ReceiptScanComponent implements OnInit {
 
   private showMessage(message: string) {
     this.snackBar.open(message, 'Close', { duration: 4000, verticalPosition: 'top' });
+  }
+}
+
+// Skip Item Confirmation Dialog
+@Component({
+  selector: 'skip-item-confirmation-dialog',
+  standalone: true,
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule],
+  template: `
+    <div class="skip-dialog">
+      <div class="dialog-header">
+        <mat-icon class="warning-icon">info</mat-icon>
+        <h2 mat-dialog-title>Skip Item</h2>
+      </div>
+
+      <mat-dialog-content>
+        <p class="dialog-message">
+          Are you sure you want to skip <strong>"{{ data.itemName }}"</strong>?
+        </p>
+        <p class="dialog-hint">
+          This item will not be added to your inventory. You can always add it manually later.
+        </p>
+      </mat-dialog-content>
+
+      <mat-dialog-actions align="end">
+        <button mat-button (click)="onCancel()">
+          <mat-icon>close</mat-icon>
+          Cancel
+        </button>
+        <button mat-raised-button color="warn" (click)="onConfirm()">
+          <mat-icon>check</mat-icon>
+          Skip Item
+        </button>
+      </mat-dialog-actions>
+    </div>
+  `,
+  styles: [`
+    .skip-dialog {
+      min-width: 300px;
+
+      .dialog-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 0;
+        padding: 20px 24px 0;
+
+        .warning-icon {
+          font-size: 28px;
+          width: 28px;
+          height: 28px;
+          color: #ff9800;
+          flex-shrink: 0;
+        }
+
+        h2 {
+          margin: 0;
+          font-size: 1.3rem;
+        }
+      }
+
+      mat-dialog-content {
+        padding: 8px 24px 16px !important;
+
+        .dialog-message {
+          margin: 0 0 0.75rem 0;
+          font-size: 1rem;
+          color: rgba(0, 0, 0, 0.87);
+
+          strong {
+            color: var(--primary-color, #4caf50);
+          }
+        }
+
+        .dialog-hint {
+          margin: 0;
+          font-size: 0.9rem;
+          color: rgba(0, 0, 0, 0.6);
+        }
+      }
+
+      mat-dialog-actions {
+        padding: 12px 24px 16px !important;
+
+        button {
+          min-width: 80px;
+
+          mat-icon {
+            margin-right: 6px;
+          }
+        }
+      }
+    }
+  `]
+})
+export class SkipItemConfirmationDialog {
+  constructor(
+    public dialogRef: MatDialogRef<SkipItemConfirmationDialog>,
+    @Inject(MAT_DIALOG_DATA) public data: { itemName: string }
+  ) {}
+
+  onCancel() {
+    this.dialogRef.close(false);
+  }
+
+  onConfirm() {
+    this.dialogRef.close(true);
   }
 }
