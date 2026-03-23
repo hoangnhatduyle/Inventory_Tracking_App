@@ -290,22 +290,32 @@ type Step = 'capture' | 'analyzing' | 'review' | 'adding' | 'done';
     .review-list {
       flex: 1;
       overflow-y: auto;
-      padding: 8px 16px 80px;
+      padding: 12px 16px 80px;
+      background: #f5f5f5;
     }
 
     .review-item {
       display: flex;
       gap: 12px;
-      padding: 12px 0;
-      border-bottom: 1px solid rgba(0,0,0,0.08);
-      transition: opacity 0.2s;
+      padding: 16px;
+      margin-bottom: 12px;
+      background: white;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+      transition: all 0.2s ease;
+
+      &:hover:not(.deselected) {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+        border-color: rgba(0,0,0,0.18);
+      }
 
       &.deselected {
         opacity: 0.45;
       }
 
       .item-checkbox {
-        margin-top: 18px;
+        margin-top: 2px;
         flex-shrink: 0;
       }
 
@@ -313,14 +323,25 @@ type Step = 'capture' | 'analyzing' | 'review' | 'adding' | 'done';
         flex: 1;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 10px;
       }
 
-      .field-name { width: 100%; }
+      .field-name {
+        width: 100%;
+
+        ::ng-deep .mat-mdc-form-field-label {
+          font-weight: 500;
+        }
+
+        ::ng-deep .mat-mdc-text-field-wrapper input {
+          font-weight: 600;
+          font-size: 1.05rem;
+        }
+      }
 
       .item-row {
         display: flex;
-        gap: 8px;
+        gap: 12px;
 
         .field-qty { flex: 1; min-width: 60px; }
         .field-unit { flex: 1.5; }
