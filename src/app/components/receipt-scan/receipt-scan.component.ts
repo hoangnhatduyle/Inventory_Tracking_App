@@ -138,8 +138,8 @@ type Step = 'capture' | 'analyzing' | 'review' | 'adding' | 'done';
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" class="field-price">
-                  <mat-label>Price ($)</mat-label>
-                  <input matInput type="number" [(ngModel)]="item.totalPrice" min="0" step="0.01">
+                  <mat-label>Total Price ($)</mat-label>
+                  <input matInput type="number" [(ngModel)]="item.totalPrice" min="0" step="0.01" placeholder="Total for this quantity">
                 </mat-form-field>
               </div>
 
@@ -478,6 +478,12 @@ export class ReceiptScanComponent implements OnInit {
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + expiryDays);
 
+      // Calculate unit price from total price and quantity
+      // If user entered "2 bottles for $10", unit price is $5
+      const unitPrice = (item.totalPrice && item.quantity > 0)
+        ? item.totalPrice / item.quantity
+        : undefined;
+
       const inventoryItem: InventoryItem = {
         userId: this.userId!,
         name: item.name,
@@ -487,7 +493,7 @@ export class ReceiptScanComponent implements OnInit {
         purchaseDate: today,
         expirationDate: toLocalDateString(expiryDate),
         locationId: this.defaultLocationId ?? 1,
-        price: item.totalPrice ?? undefined,
+        price: unitPrice,
         notificationEnabled: true,
         notificationDaysBefore: 3
       };

@@ -34,10 +34,15 @@ export class StatisticsService {
 
       items.forEach(item => {
         const expirationDate = new Date(item.expirationDate);
-        
-        // Calculate total value (use current quantity, not initial)
+
+        // Calculate total value using current remaining quantity (after usage tracking)
+        // Falls back to original quantity if usage not tracked
+        const quantityForValue = item.currentQuantity !== undefined && item.currentQuantity !== null
+          ? item.currentQuantity
+          : item.quantity;
+
         if (item.price) {
-          totalValue += item.price * (item.currentQuantity ?? item.quantity);
+          totalValue += item.price * quantityForValue;
         }
 
         // Count expiring items
@@ -52,7 +57,7 @@ export class StatisticsService {
         // Category breakdown
         const catStats = categoryMap.get(item.categoryId) || { count: 0, value: 0 };
         catStats.count++;
-        catStats.value += (item.price || 0) * (item.currentQuantity ?? item.quantity);
+        catStats.value += (item.price || 0) * quantityForValue;
         categoryMap.set(item.categoryId, catStats);
 
         // Location breakdown

@@ -229,7 +229,8 @@ export class InventoryService {
       // Use remaining quantity as the wasted amount
       const wastedQty = remainingQty;
 
-      // Assume price is a per-unit price; calculate value lost accordingly
+      // Price is stored as per-unit cost (calculated from total price / quantity when added)
+      // valueLost = price_per_unit × quantity_wasted
       const pricePerUnit = item.price || 0;
 
       // Insert into wasted_items table (only the remaining quantity is being wasted)
