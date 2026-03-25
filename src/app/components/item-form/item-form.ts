@@ -373,7 +373,7 @@ export class ItemForm implements OnInit {
 
       // Create initial batch for new items (edit mode preserves existing batches)
       if (!this.isEditMode) {
-        await this.inventoryService.addBatch({
+        const batchId = await this.inventoryService.addBatch({
           itemId: savedItemId,
           quantity: this.quantity,
           expirationDate: this.expirationDate ? this.formatDateToString(this.expirationDate) : null,
@@ -381,6 +381,9 @@ export class ItemForm implements OnInit {
           price: pricePerUnit || null,
           notes: this.notes.trim() || null
         });
+        if (!batchId) {
+          throw new Error('Item saved but failed to create initial stock batch');
+        }
       }
 
       // Navigate back to previous page

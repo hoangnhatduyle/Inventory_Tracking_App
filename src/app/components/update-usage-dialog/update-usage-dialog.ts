@@ -68,8 +68,8 @@ export class UpdateUsageDialog implements OnInit {
 
   async ngOnInit() {
     // Initialize quantities
-    this.initialQuantity = this.item.initialQuantity || this.item.quantity;
-    this.currentQuantity = this.item.currentQuantity !== undefined
+    this.initialQuantity = this.item.initialQuantity ?? this.item.quantity;
+    this.currentQuantity = this.item.currentQuantity != null
       ? this.item.currentQuantity
       : this.item.quantity;
 
@@ -100,6 +100,7 @@ export class UpdateUsageDialog implements OnInit {
 
   onCurrentQuantityChange() {
     // Manual input of current quantity
+    this.currentQuantity = parseFloat(this.currentQuantity as any) || 0;
     if (this.currentQuantity < 0) this.currentQuantity = 0;
     if (this.currentQuantity > this.initialQuantity) this.currentQuantity = this.initialQuantity;
 
@@ -114,10 +115,11 @@ export class UpdateUsageDialog implements OnInit {
 
   onAmountUsedChange() {
     // Manual input of amount used (incremental)
-    const previousQuantity = this.item.currentQuantity !== undefined 
-      ? this.item.currentQuantity 
+    this.amountToUse = parseFloat(this.amountToUse as any) || 0;
+    const previousQuantity = this.item.currentQuantity != null
+      ? this.item.currentQuantity
       : this.item.quantity;
-    
+
     if (this.amountToUse < 0) this.amountToUse = 0;
     if (this.amountToUse > previousQuantity) this.amountToUse = previousQuantity;
 
@@ -142,8 +144,8 @@ export class UpdateUsageDialog implements OnInit {
   }
 
   onMarkAsEmpty() {
-    const previousQuantity = this.item.currentQuantity !== undefined 
-      ? this.item.currentQuantity 
+    const previousQuantity = this.item.currentQuantity != null
+      ? this.item.currentQuantity
       : this.item.quantity;
     
     this.currentQuantity = 0;

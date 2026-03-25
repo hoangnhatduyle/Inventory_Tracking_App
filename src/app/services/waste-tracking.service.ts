@@ -12,47 +12,47 @@ export class WasteTrackingService {
 
   async getWastedItems(userId: number): Promise<WastedItem[]> {
     try {
+      // Query wasted_items without JOIN (web localStorage fallback doesn't support JOINs)
       const query = `
-        SELECT 
+        SELECT
           w.id,
           w.user_id,
           w.item_name,
           w.category_id,
-          c.name as category_name,
           w.quantity,
           w.unit,
           w.price,
           w.wasted_date
         FROM wasted_items w
-        LEFT JOIN categories c ON w.category_id = c.id
         WHERE w.user_id = ?
         ORDER BY w.wasted_date DESC
       `;
-      
+
       const result = await this.db.query(query, [userId]);
-      
+
       if (result.values) {
-        // Only fetch categories if needed (localStorage fallback may not join categories)
-        const needsCategoryMap = result.values.some((r: any) => !r.category_name);
-        let categories: any = {};
-        if (needsCategoryMap) {
-          const categoriesRes = await this.db.query('SELECT id, name FROM categories');
-          categories = (categoriesRes.values || []).reduce((m: any, c: any) => { m[c.id] = c.name; return m; }, {});
+        // Fetch all categories once to map IDs to names
+        const categoriesRes = await this.db.query('SELECT id, name FROM categories');
+        const categories: any = {};
+        if (categoriesRes.values) {
+          categoriesRes.values.forEach((c: any) => {
+            categories[c.id] = c.name;
+          });
         }
+
         return result.values.map((row: any) => ({
           id: row.id,
           userId: row.user_id,
           itemName: row.item_name,
           categoryId: row.category_id,
-          categoryName: row.category_name || categories[row.category_id] || null,
+          categoryName: categories[row.category_id] || null,
           quantity: row.quantity,
           unit: row.unit,
           price: row.price || 0,
-          // fallback to created_at if wasted_date is missing
-          wastedDate: row.wasted_date || row.created_at || ''
+          wastedDate: row.wasted_date || ''
         }));
       }
-      
+
       return [];
     } catch (error) {
       console.error('Error getting wasted items:', error);

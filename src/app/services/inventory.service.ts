@@ -120,7 +120,6 @@ export class InventoryService {
   }
 
   async deleteItem(itemId: number): Promise<boolean> {
-    let transactionStarted = false;
     try {
       // Get all images for this item
       const images = await this.getItemImages(itemId);
@@ -138,45 +137,25 @@ export class InventoryService {
         }
       }
 
-      // Wrap database deletions in a transaction to prevent orphaned records
-      await this.db.beginTransaction();
-      transactionStarted = true;
-
-      // Delete all related data from database
+      // Delete all related database records
+      // Note: inventory_batches and usage_history have ON DELETE CASCADE FK constraints,
+      // so they'll auto-delete when inventory_items is deleted
       const deleteImagesQuery = `DELETE FROM item_images WHERE item_id = ?`;
       await this.db.run(deleteImagesQuery, [itemId]);
 
-      const deleteBatchesQuery = `DELETE FROM inventory_batches WHERE item_id = ?`;
-      await this.db.run(deleteBatchesQuery, [itemId]);
-
-      const deleteUsageHistoryQuery = `DELETE FROM usage_history WHERE item_id = ?`;
-      await this.db.run(deleteUsageHistoryQuery, [itemId]);
-
-      // Delete the item
+      // Delete the item (batches and usage history will cascade delete)
       const query = `DELETE FROM inventory_items WHERE id = ?`;
       await this.db.run(query, [itemId]);
-
-      await this.db.commit();
-      transactionStarted = false;
 
       console.log(`Deleted item ${itemId} with ${images.length} image(s), batches, and usage history`);
       return true;
     } catch (error) {
-      // Rollback transaction if it was started
-      if (transactionStarted) {
-        try {
-          await this.db.rollback();
-        } catch (rollbackErr) {
-          console.error('Error rolling back transaction:', rollbackErr);
-        }
-      }
       console.error('Error deleting item:', error);
       return false;
     }
   }
 
   async deleteItems(itemIds: number[]): Promise<boolean> {
-    let transactionStarted = false;
     try {
       // Delete images for each item
       for (const itemId of itemIds) {
@@ -192,39 +171,20 @@ export class InventoryService {
         }
       }
 
-      // Begin transaction for database deletions
-      await this.db.beginTransaction();
-      transactionStarted = true;
-
-      // Delete all related data from database
+      // Delete all related database records
+      // Note: inventory_batches and usage_history have ON DELETE CASCADE FK constraints,
+      // so they'll auto-delete when inventory_items is deleted
       const placeholders = itemIds.map(() => '?').join(',');
       const deleteImagesQuery = `DELETE FROM item_images WHERE item_id IN (${placeholders})`;
       await this.db.run(deleteImagesQuery, itemIds);
 
-      const deleteBatchesQuery = `DELETE FROM inventory_batches WHERE item_id IN (${placeholders})`;
-      await this.db.run(deleteBatchesQuery, itemIds);
-
-      const deleteUsageHistoryQuery = `DELETE FROM usage_history WHERE item_id IN (${placeholders})`;
-      await this.db.run(deleteUsageHistoryQuery, itemIds);
-
-      // Delete items
+      // Delete items (batches and usage history will cascade delete)
       const query = `DELETE FROM inventory_items WHERE id IN (${placeholders})`;
       await this.db.run(query, itemIds);
-
-      await this.db.commit();
-      transactionStarted = false;
 
       console.log(`Deleted ${itemIds.length} item(s) with their images, batches, and usage history`);
       return true;
     } catch (error) {
-      // Rollback transaction if it was started
-      if (transactionStarted) {
-        try {
-          await this.db.rollback();
-        } catch (rollbackErr) {
-          console.error('Error rolling back transaction:', rollbackErr);
-        }
-      }
       console.error('Error deleting items:', error);
       return false;
     }
@@ -236,7 +196,7 @@ export class InventoryService {
       const item = await this.getItemById(itemId);
       if (!item) return false;
       // Determine how much of the item remains (use currentQuantity if available)
-      const remainingQty = item.currentQuantity !== undefined ? item.currentQuantity : item.quantity;
+      const remainingQty = item.currentQuantity != null ? item.currentQuantity : item.quantity;
       if (!remainingQty || remainingQty <= 0) {
         // Nothing to mark as wasted
         return false;
@@ -262,15 +222,24 @@ export class InventoryService {
         INSERT INTO wasted_items (user_id, item_name, category_id, quantity, unit, price, wasted_date)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `;
-      await this.db.run(insertQuery, [
+      const params = [
         item.userId,
         item.name,
-        item.categoryId,
+        item.categoryId ?? null,
         wastedQty,
         item.unit,
         pricePerUnit,
         new Date().toISOString()
-      ]);
+      ];
+      console.log('Inserting waste record with params:', params);
+      const result = await this.db.run(insertQuery, params);
+      console.log('Waste INSERT result:', result);
+
+      // Check if insert was successful (lastId > 0 means insertion succeeded)
+      if (!result || !result.changes || !result.changes.lastId) {
+        console.error('Failed to insert waste record:', result);
+        return false;
+      }
 
       console.log(`Marked item ${itemId} as wasted and cleaned up images`);
       return true;
@@ -714,9 +683,6 @@ export class InventoryService {
         return false;
       }
 
-      // Start transaction for batch deductions
-      await this.db.beginTransaction();
-
       let remaining = amountToDeduct;
 
       for (const batch of batches) {
@@ -766,17 +732,8 @@ export class InventoryService {
         }
       }
 
-      // Commit transaction
-      await this.db.commit();
-
       return remaining === 0;
     } catch (error) {
-      // Rollback on any error
-      try {
-        await this.db.rollback();
-      } catch (rollbackErr) {
-        console.error('Error rolling back FIFO deduction:', rollbackErr);
-      }
       console.error('Error deducting from batches (FIFO):', error);
       return false;
     }

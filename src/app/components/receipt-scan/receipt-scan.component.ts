@@ -129,6 +129,15 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
             Choose from Gallery
           </button>
         </div>
+
+        <mat-form-field appearance="outline" class="full-width receipt-date-field">
+          <mat-label>Receipt Date</mat-label>
+          <input matInput [matDatepicker]="receiptDatePicker"
+            [(ngModel)]="receiptDate"
+            [max]="today">
+          <mat-datepicker-toggle matSuffix [for]="receiptDatePicker"></mat-datepicker-toggle>
+          <mat-datepicker #receiptDatePicker></mat-datepicker>
+        </mat-form-field>
       </div>
 
       <!-- Step: Analyzing -->
@@ -459,8 +468,21 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
                   </td>
 
                   <!-- Purchase Date -->
-                  <td class="col-purchase">
-                    <span class="cell-value">{{ item.purchaseDate }}</span>
+                  <td class="col-purchase editable-cell" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'purchaseDate'" (click)="startEdit(idx, 'purchaseDate')">
+                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'purchaseDate') {
+                      <div class="cell-edit">
+                        <input matInput type="date" [(ngModel)]="editingValue" class="edit-input" [max]="today" (click)="$event.stopPropagation()">
+                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
+                          <mat-icon class="confirm-icon">check</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
+                          <mat-icon class="cancel-icon">close</mat-icon>
+                        </button>
+                      </div>
+                    } @else {
+                      <span class="cell-value">{{ item.purchaseDate }}</span>
+                      <mat-icon class="edit-indicator">edit</mat-icon>
+                    }
                   </td>
 
                   <!-- Expire Amount -->
@@ -640,6 +662,12 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
           min-height: 48px;
           mat-icon { margin-right: 8px; }
         }
+      }
+
+      .receipt-date-field {
+        width: 100%;
+        max-width: 280px;
+        margin-top: 1rem;
       }
     }
 
@@ -1225,6 +1253,10 @@ export class ReceiptScanComponent implements OnInit {
   reviewMode: 'wizard' | 'table' = 'wizard';
   expandedItemIndex: number | null = null;
 
+  // Receipt date selection
+  receiptDate: string = toLocalDateString(new Date());
+  today: string = toLocalDateString(new Date());
+
   // Table editing state
   editingCell: { rowIndex: number; field: keyof ReviewItem } | null = null;
   editingValue: any = null;
@@ -1326,7 +1358,7 @@ export class ReceiptScanComponent implements OnInit {
           categoryId,
           // New fields — auto-filled
           locationId: this.defaultLocationId ?? 1,
-          purchaseDate: today,
+          purchaseDate: this.receiptDate,
           expirationDate: toLocalDateString(expiryDate),
           expireAmount: expiryDays,
           expireUnit: 'days' as const,
@@ -1581,11 +1613,24 @@ export class ReceiptScanComponent implements OnInit {
         price: unitPrice,
         notes: item.notes || undefined,
         notificationEnabled: item.notificationEnabled,
-        notificationDaysBefore: 3
+        notificationDaysBefore: 3,
+        initialQuantity: item.quantity,
+        currentQuantity: item.quantity
       };
 
       const result = await this.inventoryService.addItem(inventoryItem);
-      if (result.success) addedCount++;
+      if (result.success && result.itemId) {
+        // Create batch for the newly added item
+        await this.inventoryService.addBatch({
+          itemId: result.itemId,
+          quantity: item.quantity,
+          expirationDate: item.expirationDate || null,
+          purchaseDate: item.purchaseDate || null,
+          price: unitPrice || null,
+          notes: item.notes || null
+        });
+        addedCount++;
+      }
       this.addProgress++;
     }
 

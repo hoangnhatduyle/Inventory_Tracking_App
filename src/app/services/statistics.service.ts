@@ -129,31 +129,66 @@ export class StatisticsService {
 
   private async getMostWastedItems(userId: number): Promise<WastedItemStats[]> {
     try {
+      // Query without JOIN (web localStorage fallback doesn't support JOINs or GROUP BY)
       const query = `
-        SELECT 
+        SELECT
+          w.id,
           w.item_name,
-          c.name as category_name,
-          COUNT(*) as times_wasted,
-          SUM(w.price * w.quantity) as total_value
+          w.category_id,
+          w.price,
+          w.quantity
         FROM wasted_items w
-        LEFT JOIN categories c ON w.category_id = c.id
         WHERE w.user_id = ?
-        GROUP BY w.item_name, c.name
-        ORDER BY times_wasted DESC, total_value DESC
-        LIMIT 10
+        ORDER BY w.wasted_date DESC
       `;
-      
+
       const result = await this.db.query(query, [userId]);
-      
-      if (result.values) {
-        return result.values.map((row: any) => ({
-          itemName: row.item_name,
-          categoryName: row.category_name || 'Unknown',
-          timesWasted: row.times_wasted,
-          totalValue: row.total_value || 0
-        }));
+
+      if (result.values && result.values.length > 0) {
+        // Fetch all categories once
+        const categoriesRes = await this.db.query('SELECT id, name FROM categories');
+        const categories: any = {};
+        if (categoriesRes.values) {
+          categoriesRes.values.forEach((c: any) => {
+            categories[c.id] = c.name;
+          });
+        }
+
+        // Group and aggregate in memory
+        const itemMap = new Map<string, { name: string; category: string; count: number; value: number }>();
+
+        result.values.forEach((row: any) => {
+          const itemName = row.item_name;
+          const categoryName = categories[row.category_id] || 'Unknown';
+          const key = `${itemName}|${categoryName}`;
+          const value = (row.price || 0) * (row.quantity || 0);
+
+          if (itemMap.has(key)) {
+            const item = itemMap.get(key)!;
+            item.count++;
+            item.value += value;
+          } else {
+            itemMap.set(key, {
+              name: itemName,
+              category: categoryName,
+              count: 1,
+              value: value
+            });
+          }
+        });
+
+        // Convert to array, sort, and limit to 10
+        return Array.from(itemMap.values())
+          .sort((a, b) => b.count - a.count || b.value - a.value)
+          .slice(0, 10)
+          .map((item) => ({
+            itemName: item.name,
+            categoryName: item.category,
+            timesWasted: item.count,
+            totalValue: item.value
+          }));
       }
-      
+
       return [];
     } catch (error) {
       console.error('Error getting wasted items:', error);

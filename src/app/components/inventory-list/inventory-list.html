@@ -285,6 +285,9 @@
             <button mat-icon-button (click)="$event.stopPropagation(); onUpdateUsage(item)" matTooltip="Track Usage">
               <mat-icon>timeline</mat-icon>
             </button>
+            <button mat-icon-button color="warn" (click)="$event.stopPropagation(); onMarkAsWasted(item)" matTooltip="Mark as Wasted">
+              <mat-icon>delete_sweep</mat-icon>
+            </button>
             <button mat-icon-button (click)="$event.stopPropagation(); onEditItem(item)" matTooltip="Edit">
               <mat-icon>edit</mat-icon>
             </button>

@@ -61,6 +61,9 @@ export class DatabaseService {
       // Migrate existing items to batch tracking
       await this.migrateToBatchTracking();
 
+      // Migrate wasted_items table to remove bad FK constraint
+      await this.migrateWastedItemsSchema();
+
       this.isInitialized = true;
       console.log('Database initialized successfully');
     } catch (error) {
@@ -204,13 +207,12 @@ export class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
         item_name TEXT NOT NULL,
-        category_id INTEGER NOT NULL,
+        category_id INTEGER,
         quantity REAL NOT NULL,
         unit TEXT NOT NULL,
         price REAL,
         wasted_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (category_id) REFERENCES categories(id)
+        FOREIGN KEY (user_id) REFERENCES users(id)
       );`,
 
       // Barcode mappings table (learn-as-you-go barcode database)
@@ -402,6 +404,40 @@ export class DatabaseService {
     } catch (error) {
       console.warn('AI features schema migration skipped or failed:', error);
     }
+
+    // Migration: Fix wasted_items table FK constraint issue
+    // The old table had FOREIGN KEY (category_id) which blocks NULL values
+    // New schema allows NULL category_id
+    try {
+      // Check if the old schema exists by trying to read the table
+      const existingWasted = await this.db.query(`SELECT COUNT(*) as count FROM wasted_items LIMIT 1;`);
+
+      // Create new table without the problematic FK constraint
+      await this.db.run(`CREATE TABLE IF NOT EXISTS wasted_items_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        item_name TEXT NOT NULL,
+        category_id INTEGER,
+        quantity REAL NOT NULL,
+        unit TEXT NOT NULL,
+        price REAL,
+        wasted_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      );`);
+
+      // Copy data from old table to new table
+      await this.db.run(`INSERT INTO wasted_items_new
+        SELECT id, user_id, item_name, category_id, quantity, unit, price, wasted_date
+        FROM wasted_items;`);
+
+      // Drop old table and rename new table
+      await this.db.run(`DROP TABLE wasted_items;`);
+      await this.db.run(`ALTER TABLE wasted_items_new RENAME TO wasted_items;`);
+
+      console.log('Successfully migrated wasted_items table schema');
+    } catch (migrationError) {
+      console.log('wasted_items migration skipped (table may already be in correct format):', migrationError);
+    }
   }
 
   private async migrateToBatchTracking(): Promise<void> {
@@ -442,6 +478,72 @@ export class DatabaseService {
       }
     } catch (error) {
       console.error('Batch tracking migration failed with error:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+    }
+  }
+
+  private async migrateWastedItemsSchema(): Promise<void> {
+    try {
+      // Only run on native platforms where SQLite is used
+      if (Capacitor.getPlatform() === 'web') return;
+
+      console.log('Checking wasted_items table schema...');
+
+      // Check if wasted_items table exists
+      const tableCheck = await this.db.query(`
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='wasted_items'
+      `);
+
+      if (!tableCheck.values || tableCheck.values.length === 0) {
+        console.log('wasted_items table does not exist yet, will be created by createTables()');
+        return;
+      }
+
+      // Check if the bad FK constraint exists
+      const fkList = await this.db.query(`PRAGMA foreign_key_list(wasted_items);`);
+      const hasBadFK = fkList.values && fkList.values.some((fk: any) =>
+        fk.column === 'category_id'
+      );
+
+      if (!hasBadFK) {
+        console.log('wasted_items table schema is correct (no bad FK on category_id)');
+        return;
+      }
+
+      console.log('Found bad FK constraint on category_id, migrating wasted_items table...');
+
+      // Create new table without the bad FK constraint
+      await this.db.run(`
+        CREATE TABLE IF NOT EXISTS wasted_items_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          item_name TEXT NOT NULL,
+          category_id INTEGER,
+          quantity REAL NOT NULL,
+          unit TEXT NOT NULL,
+          price REAL,
+          wasted_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+      `);
+
+      // Copy data from old table to new table
+      await this.db.run(`
+        INSERT INTO wasted_items_new (id, user_id, item_name, category_id, quantity, unit, price, wasted_date)
+        SELECT id, user_id, item_name, category_id, quantity, unit, price, wasted_date
+        FROM wasted_items;
+      `);
+
+      // Drop old table
+      await this.db.run(`DROP TABLE wasted_items;`);
+
+      // Rename new table to old table name
+      await this.db.run(`ALTER TABLE wasted_items_new RENAME TO wasted_items;`);
+
+      console.log('✓ Successfully migrated wasted_items table schema');
+    } catch (error) {
+      console.error('wasted_items schema migration failed:', error);
       console.error('Error details:', JSON.stringify(error, null, 2));
     }
   }
@@ -810,8 +912,10 @@ export class DatabaseService {
 
     const whereField = whereMatch[1];
     const whereValue = params[params.length - 1];
+    let changedCount = 0;
     db[tableName] = db[tableName].map((row: any) => {
       if (row[whereField] === whereValue) {
+        changedCount++;
         // Update fields
         const setMatch = sql.match(/SET\s+(.+?)\s+WHERE/is);
         if (setMatch) {
@@ -838,14 +942,14 @@ export class DatabaseService {
             // Handle regular SET assignments with parameters
             const setPairs = setPart.split(',');
             let paramIndex = 0;
-            
+
             setPairs.forEach((pair) => {
               const trimmedPair = pair.trim();
               // Skip non-parameter assignments like "updated_at = CURRENT_TIMESTAMP"
               if (!trimmedPair.includes('=')) return;
-              
+
               const [field, expr] = trimmedPair.split('=').map(s => s.trim());
-              
+
               // Only assign if expression is a parameter placeholder
               if (expr === '?') {
                 row[field] = params[paramIndex];
@@ -860,14 +964,15 @@ export class DatabaseService {
     });
 
     localStorage.setItem('inventory_db', JSON.stringify(db));
-    return { changes: {} };
+    return { changes: { changes: changedCount } };
   }
 
   private handleDelete(db: any, sql: string, params: any[]): any {
     const tableMatch = sql.match(/DELETE FROM\s+(\w+)/i);
-    if (!tableMatch) return { changes: {} };
+    if (!tableMatch) return { changes: { changes: 0 } };
 
     const tableName = tableMatch[1];
+    const before = db[tableName]?.length || 0;
 
     if (sql.toLowerCase().includes('where')) {
       const whereStart = sql.toLowerCase().indexOf('where') + 5;
@@ -891,8 +996,10 @@ export class DatabaseService {
       db[tableName] = [];
     }
 
+    const after = db[tableName]?.length || 0;
+    const changedCount = before - after;
     localStorage.setItem('inventory_db', JSON.stringify(db));
-    return { changes: {} };
+    return { changes: { changes: changedCount } };
   }
 
   // ===== Data Browser Methods =====

@@ -104,6 +104,39 @@ export class InventoryList implements OnInit, OnDestroy {
   // Event handler reference for cleanup
   private resizeHandler = () => this.updateViewMode();
 
+  // Filter persistence
+  private readonly FILTER_KEY = 'inventory_filter_state';
+
+  private saveFilterState() {
+    const state = {
+      searchQuery: this.searchQuery,
+      selectedCategory: this.selectedCategory,
+      selectedLocation: this.selectedLocation,
+      selectedStatus: this.selectedStatus,
+      sortBy: this.sortBy,
+      groupBy: this.groupBy,
+      viewMode: this.viewMode,
+    };
+    localStorage.setItem(this.FILTER_KEY, JSON.stringify(state));
+  }
+
+  private restoreFilterState() {
+    const saved = localStorage.getItem(this.FILTER_KEY);
+    if (!saved) return;
+    try {
+      const state = JSON.parse(saved);
+      this.searchQuery = state.searchQuery ?? '';
+      this.selectedCategory = state.selectedCategory ?? null;
+      this.selectedLocation = state.selectedLocation ?? null;
+      this.selectedStatus = state.selectedStatus ?? 'all';
+      this.sortBy = state.sortBy ?? 'expiration';
+      this.groupBy = state.groupBy ?? 'none';
+      this.viewMode = state.viewMode ?? 'card';
+    } catch {
+      // Ignore corrupt data
+    }
+  }
+
   constructor(
     private inventoryService: InventoryService,
     private authService: AuthService,
@@ -123,6 +156,7 @@ export class InventoryList implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.userId = await this.authService.getUserId();
+    this.restoreFilterState();
     await this.loadData();
 
     // Set view mode based on screen size
@@ -253,6 +287,7 @@ export class InventoryList implements OnInit, OnDestroy {
     this.filteredItems = filtered;
     this.pageIndex = 0;
     if (this.paginator) this.paginator.firstPage();
+    this.saveFilterState();
   }
 
   /** Parse date string (YYYY-MM-DD) as local date to avoid timezone issues */
@@ -566,7 +601,7 @@ export class InventoryList implements OnInit, OnDestroy {
 
   async onMarkAsWasted(item: InventoryItem) {
     try {
-      const remainingQty = item.currentQuantity !== undefined ? item.currentQuantity : item.quantity;
+      const remainingQty = item.currentQuantity != null ? item.currentQuantity : item.quantity;
       if (!remainingQty || remainingQty <= 0) {
         this.errorHandler.showWarning('Nothing left to mark as wasted');
         return;
@@ -577,10 +612,14 @@ export class InventoryList implements OnInit, OnDestroy {
       const confirmed = confirm(`Mark ${remainingQty} ${item.unit} of "${item.name}" as wasted?\nValue lost: $${valueLost}`);
       if (!confirmed) return;
 
-      await this.inventoryService.markAsWasted(item.id!);
+      const success = await this.inventoryService.markAsWasted(item.id!);
       // markAsWasted already removes the item, but keep the reload for completeness
       await this.loadData();
-      this.errorHandler.showSuccess('✓ Item marked as wasted');
+      if (success) {
+        this.errorHandler.showSuccess('✓ Item marked as wasted');
+      } else {
+        this.errorHandler.showWarning('Item removed but could not be logged in Waste Tracking');
+      }
     } catch (error) {
       this.errorHandler.handleDataError('mark item as wasted', error);
     }
