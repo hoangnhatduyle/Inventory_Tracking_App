@@ -1,7 +1,8 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
+import { MatDialog, MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
+import { AISuggestionDialogComponent, AISuggestionDialogData } from '../item-form/ai-suggestion-dialog.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
@@ -288,13 +289,14 @@ export class RefillDialogComponent implements OnInit {
 
   constructor(
     public dialogRef: MatDialogRef<RefillDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { 
-      item: InventoryItem; 
+    @Inject(MAT_DIALOG_DATA) public data: {
+      item: InventoryItem;
       currentQuantity: number;
       userId: number;
     },
     private expirationAIService: ExpirationAIService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog
   ) {}
 
   ngOnInit() {
@@ -311,6 +313,10 @@ export class RefillDialogComponent implements OnInit {
       this.snackBar.open('Item name is required for AI suggestion', 'Close', { duration: 3000 });
       return;
     }
+    if (!this.purchaseDate) {
+      this.snackBar.open('Purchase date is required for AI suggestion', 'Close', { duration: 3000 });
+      return;
+    }
 
     this.isLoadingAI = true;
 
@@ -318,23 +324,34 @@ export class RefillDialogComponent implements OnInit {
       const suggestion = await this.expirationAIService.suggestExpiration(
         this.data.item.name,
         this.purchaseDate,
-        null, // Location not needed for refill
+        null,
         this.data.userId
       );
 
-      // Calculate suggested expiration date
       const suggestedDate = new Date(this.purchaseDate);
       suggestedDate.setDate(suggestedDate.getDate() + suggestion.days);
-      this.expirationDate = suggestedDate;
 
-      this.snackBar.open(`✓ AI suggested: ${suggestion.days} days (${suggestion.note})`, 'Close', { duration: 4000 });
+      const dialogRef = this.dialog.open(AISuggestionDialogComponent, {
+        width: '90%',
+        maxWidth: '500px',
+        data: {
+          itemName: this.data.item.name,
+          purchaseDate: this.purchaseDate,
+          suggestedDays: suggestion.days,
+          suggestedExpirationDate: suggestedDate,
+          note: suggestion.note
+        } as AISuggestionDialogData
+      });
+
+      dialogRef.afterClosed().subscribe((result) => {
+        if (result?.accepted) {
+          this.expirationDate = suggestedDate;
+          this.snackBar.open('✓ AI suggestion applied', 'Close', { duration: 3000 });
+        }
+      });
     } catch (error: any) {
       console.error('AI suggestion error:', error);
-      this.snackBar.open(
-        error.message || 'Failed to get AI suggestion',
-        'Close',
-        { duration: 5000 }
-      );
+      this.snackBar.open(error.message || 'Failed to get AI suggestion', 'Close', { duration: 5000 });
     } finally {
       this.isLoadingAI = false;
     }

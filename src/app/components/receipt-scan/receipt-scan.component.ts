@@ -16,7 +16,7 @@ import { MatBottomSheet, MatBottomSheetModule } from '@angular/material/bottom-s
 import { MatDialog, MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatDatepickerModule, MatDatepickerInputEvent } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatButtonToggleModule, MatButtonToggleChange } from '@angular/material/button-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -266,7 +266,7 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
                 <span>Category</span>
               </div>
               <div class="selector-value">
-                <span *ngIf="categories[currentItem.categoryId - 1]">{{ categories[currentItem.categoryId - 1].name }}</span>
+                <span *ngIf="currentItem.categoryHint">{{ currentItem.categoryHint }}</span>
                 <mat-icon>chevron_right</mat-icon>
               </div>
             </div>
@@ -281,7 +281,10 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
 
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Purchase Date</mat-label>
-              <input matInput [matDatepicker]="purchasePicker" [(ngModel)]="currentItem.purchaseDate" readonly>
+              <input matInput [matDatepicker]="purchasePicker"
+                     [ngModel]="currentItem.purchaseDate"
+                     (dateChange)="onPurchaseDateChange($event, currentItem)"
+                     readonly>
               <mat-datepicker-toggle matSuffix [for]="purchasePicker"></mat-datepicker-toggle>
               <mat-datepicker #purchasePicker></mat-datepicker>
             </mat-form-field>
@@ -289,12 +292,14 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
             <div class="expiry-controls">
               <mat-form-field appearance="outline" class="flex-1">
                 <mat-label>Expires in</mat-label>
-                <input matInput type="number" [(ngModel)]="currentItem.expireAmount" min="0">
+                <input matInput type="number" [(ngModel)]="currentItem.expireAmount"
+                       (ngModelChange)="updateExpirationDate(currentItem)" min="0">
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="flex-1">
                 <mat-label>Unit</mat-label>
-                <mat-select [(ngModel)]="currentItem.expireUnit">
+                <mat-select [(ngModel)]="currentItem.expireUnit"
+                            (ngModelChange)="updateExpirationDate(currentItem)">
                   <mat-option value="days">Days</mat-option>
                   <mat-option value="weeks">Weeks</mat-option>
                   <mat-option value="months">Months</mat-option>
@@ -302,7 +307,7 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
                 </mat-select>
               </mat-form-field>
 
-              <button mat-button (click)="onAISuggest(currentItem)" [disabled]="isLoadingAI" color="accent" class="ai-btn">
+              <button mat-button (click)="onAISuggest(currentItem)" [disabled]="isLoadingAI || !currentItem.name.trim()" color="accent" class="ai-btn">
                 <mat-icon>{{ isLoadingAI ? 'hourglass_empty' : 'lightbulb' }}</mat-icon>
                 {{ isLoadingAI ? 'Suggesting...' : 'AI' }}
               </button>
@@ -310,7 +315,10 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
 
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Expiration Date</mat-label>
-              <input matInput [matDatepicker]="expiryPicker" [(ngModel)]="currentItem.expirationDate" readonly>
+              <input matInput [matDatepicker]="expiryPicker"
+                     [ngModel]="currentItem.expirationDate"
+                     (dateChange)="onExpiryDateChange($event, currentItem)"
+                     readonly>
               <mat-datepicker-toggle matSuffix [for]="expiryPicker"></mat-datepicker-toggle>
               <mat-datepicker #expiryPicker></mat-datepicker>
             </mat-form-field>
@@ -506,8 +514,23 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
                   </td>
 
                   <!-- Expiry Date -->
-                  <td class="col-expiry">
-                    <span class="cell-value">{{ item.expirationDate }}</span>
+                  <td class="col-expiry editable-cell"
+                      [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'expirationDate'"
+                      (click)="startEdit(idx, 'expirationDate')">
+                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'expirationDate') {
+                      <div class="cell-edit">
+                        <input type="date" [(ngModel)]="editingValue" class="edit-input" (click)="$event.stopPropagation()">
+                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
+                          <mat-icon class="confirm-icon">check</mat-icon>
+                        </button>
+                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
+                          <mat-icon class="cancel-icon">close</mat-icon>
+                        </button>
+                      </div>
+                    } @else {
+                      <span class="cell-value">{{ item.expirationDate }}</span>
+                      <mat-icon class="edit-indicator">edit</mat-icon>
+                    }
                   </td>
 
                   <!-- Notes -->
@@ -1416,6 +1439,8 @@ export class ReceiptScanComponent implements OnInit {
 
   // Mode selection
   selectMode(mode: 'wizard' | 'table' | any) {
+    // Flush any pending table cell edit before switching views
+    this.confirmEdit();
     // Handle both direct calls and MatButtonToggleChange events
     const selectedMode = typeof mode === 'string' ? mode : mode.value;
     this.reviewMode = selectedMode;
@@ -1470,12 +1495,49 @@ export class ReceiptScanComponent implements OnInit {
       if (this.editingCell.field === 'expireAmount' || this.editingCell.field === 'expireUnit') {
         this.updateExpirationDate(item);
       }
+
+      // If directly editing expirationDate, back-calculate expireAmount as days
+      if (this.editingCell.field === 'expirationDate' && item.purchaseDate && item.expirationDate) {
+        const purchase = new Date(
+          typeof item.purchaseDate === 'string' ? item.purchaseDate + 'T00:00:00' : item.purchaseDate
+        );
+        const expiry = new Date(
+          typeof item.expirationDate === 'string' ? item.expirationDate + 'T00:00:00' : item.expirationDate
+        );
+        const diffDays = Math.round((expiry.getTime() - purchase.getTime()) / (1000 * 60 * 60 * 24));
+        item.expireAmount = diffDays > 0 ? diffDays : 0;
+        item.expireUnit = 'days';
+      }
     }
     this.cancelEdit();
   }
 
+  // Handler for wizard purchase date datepicker — converts Date → string (no UTC offset)
+  onPurchaseDateChange(event: MatDatepickerInputEvent<Date>, item: ReviewItem) {
+    if (event.value) {
+      item.purchaseDate = toLocalDateString(event.value);
+      this.updateExpirationDate(item);
+    }
+  }
+
+  // Handler for wizard expiry date datepicker — converts Date → string and back-calculates expireAmount
+  onExpiryDateChange(event: MatDatepickerInputEvent<Date>, item: ReviewItem) {
+    if (event.value) {
+      item.expirationDate = toLocalDateString(event.value);
+      if (item.purchaseDate) {
+        const purchase = new Date(
+          typeof item.purchaseDate === 'string' ? item.purchaseDate + 'T00:00:00' : item.purchaseDate
+        );
+        const diffMs = event.value.getTime() - purchase.getTime();
+        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+        item.expireAmount = diffDays > 0 ? diffDays : 0;
+        item.expireUnit = 'days';
+      }
+    }
+  }
+
   // Calculate and update expiration date based on purchase date and expiry offset
-  private updateExpirationDate(item: ReviewItem) {
+  updateExpirationDate(item: ReviewItem) {
     if (!item.purchaseDate || !item.expireAmount) return;
 
     const purchaseDate = new Date(item.purchaseDate);
@@ -1536,6 +1598,14 @@ export class ReceiptScanComponent implements OnInit {
   // AI expiration suggestion
   async onAISuggest(item: ReviewItem) {
     if (!this.userId) return;
+    if (!item.name?.trim()) {
+      this.showMessage('Item name is required for AI suggestion');
+      return;
+    }
+    if (!item.purchaseDate) {
+      this.showMessage('Purchase date is required for AI suggestion');
+      return;
+    }
     this.isLoadingAI = true;
     try {
       const location = this.locations.find(l => l.id === item.locationId);
