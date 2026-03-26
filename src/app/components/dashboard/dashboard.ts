@@ -1,5 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalDatePipe } from '../../pipes/local-date.pipe';
+import { parseLocalDate } from '../../utils/date.utils';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -24,6 +26,7 @@ import { InventoryItem } from '../../models/inventory.model';
   standalone: true,
   imports: [
     CommonModule,
+    LocalDatePipe,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
@@ -152,10 +155,10 @@ export class Dashboard implements OnInit {
     return this.statistics?.locationBreakdown.find((l: any) => l.locationId === locationId)?.locationName || 'Unknown';
   }
 
-  getDaysUntilExpiration(expirationDate: Date): number {
+  getDaysUntilExpiration(expirationDate: string | Date): number {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const expDate = new Date(expirationDate);
+    const expDate = typeof expirationDate === 'string' ? parseLocalDate(expirationDate) : new Date(expirationDate);
     const diffTime = expDate.getTime() - today.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
@@ -283,8 +286,9 @@ export class Dashboard implements OnInit {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const expDate = new Date(item.expirationDate);
-    expDate.setHours(0, 0, 0, 0);
+    const expDate = typeof item.expirationDate === 'string'
+      ? parseLocalDate(item.expirationDate)
+      : new Date(item.expirationDate);
 
     if (expDate < today) return 'expired';
 

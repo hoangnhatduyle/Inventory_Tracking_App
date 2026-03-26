@@ -224,7 +224,7 @@ export class Settings implements OnInit {
       }
 
       const jsonData = JSON.stringify(backupData, null, 2);
-      const fileName = `chatciu_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      const fileName = `chatciu_backup_${toLocalDateString(new Date())}.json`;
 
       if (Capacitor.isNativePlatform()) {
         await Filesystem.writeFile({ path: fileName, data: jsonData, directory: Directory.Cache, encoding: Encoding.UTF8 });

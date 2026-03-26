@@ -262,7 +262,7 @@
                 <mat-icon>event</mat-icon>
                 <span [class.text-warn]="getItemStatus(item) === 'expired'"
                       [class.text-accent]="getItemStatus(item) === 'expiring-soon'">
-                  {{ item.expirationDate | date:'mediumDate' }}
+                  {{ item.expirationDate | localDate:'mediumDate' }}
                   @if (getDaysUntilExpiration(item) !== null) {
                   <span class="days-label">
                     ({{ getDaysUntilExpiration(item)! > 0 ? getDaysUntilExpiration(item) + ' days' : 'Today' }})
@@ -384,7 +384,7 @@
         <th mat-header-cell *matHeaderCellDef>Expiration</th>
         <td mat-cell *matCellDef="let item">
           @if (item.expirationDate) {
-          <span>{{ item.expirationDate | date:'shortDate' }}</span>
+          <span>{{ item.expirationDate | localDate:'shortDate' }}</span>
           } @else {
           <span class="no-expiration">—</span>
           }

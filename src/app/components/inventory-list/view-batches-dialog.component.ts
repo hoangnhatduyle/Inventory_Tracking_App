@@ -1,5 +1,6 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalDatePipe } from '../../pipes/local-date.pipe';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -12,6 +13,7 @@ import { InventoryItem, InventoryBatch } from '../../models/inventory.model';
   standalone: true,
   imports: [
     CommonModule,
+    LocalDatePipe,
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
@@ -37,7 +39,7 @@ import { InventoryItem, InventoryBatch } from '../../models/inventory.model';
         @if (earliestExpiration) {
         <div class="summary-row">
           <span class="label">Earliest Expiration:</span>
-          <span class="value warning">{{ earliestExpiration | date:'mediumDate' }}</span>
+          <span class="value warning">{{ earliestExpiration | localDate:'mediumDate' }}</span>
         </div>
         }
       </div>
@@ -70,7 +72,7 @@ import { InventoryItem, InventoryBatch } from '../../models/inventory.model';
                 <mat-icon>event</mat-icon>
                 <div class="detail-content">
                   <span class="detail-label">Purchase Date</span>
-                  <span class="detail-value">{{ batch.purchase_date | date:'mediumDate' }}</span>
+                  <span class="detail-value">{{ batch.purchase_date | localDate:'mediumDate' }}</span>
                 </div>
               </div>
 
@@ -80,7 +82,7 @@ import { InventoryItem, InventoryBatch } from '../../models/inventory.model';
                 <div class="detail-content">
                   <span class="detail-label">Expiration Date</span>
                   <span class="detail-value" [class.expired]="isExpired(batch)" [class.expiring]="isExpiringSoon(batch)">
-                    {{ batch.expiration_date | date:'mediumDate' }}
+                    {{ batch.expiration_date | localDate:'mediumDate' }}
                     @if (getDaysUntilExpiration(batch) !== null) {
                     <span class="days-info">
                       ({{ getDaysUntilExpiration(batch)! > 0 ? getDaysUntilExpiration(batch) + ' days' : getDaysUntilExpiration(batch)! === 0 ? 'Today' : 'Expired' }})

@@ -92,7 +92,7 @@
                 }
               </div>
               @if (item.expirationDate) {
-              <span class="expiry-date">{{ item.expirationDate | date: 'MMM d' }}</span>
+              <span class="expiry-date">{{ item.expirationDate | localDate: 'MMM d' }}</span>
               }
             </li>
             }
@@ -246,7 +246,7 @@
                 <mat-icon class="detail-icon">event</mat-icon>
                 <span>
                   Runs out in {{ getDaysUntilRunOut(lowStock.predictedRunOutDate) }} days
-                  ({{ lowStock.predictedRunOutDate | date:'MMM d' }})
+                  ({{ lowStock.predictedRunOutDate | localDate:'MMM d' }})
                 </span>
               </div>
               }
@@ -357,7 +357,7 @@
               {{ getCategoryName(item.categoryId) }} • {{ item.quantity }} {{ item.unit }}
               @if (item.expirationDate) {
               <span class="expiration-info">
-                • Expires {{ item.expirationDate | date:'shortDate' }}
+                • Expires {{ item.expirationDate | localDate:'shortDate' }}
               </span>
               }
             </div>

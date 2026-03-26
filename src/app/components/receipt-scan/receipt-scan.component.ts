@@ -27,7 +27,7 @@ import { ReceiptScanService } from '../../services/receipt-scan.service';
 import { ExpirationAIService } from '../../services/expiration-ai.service';
 import { ImageService } from '../../services/image.service';
 import { Category, Location, InventoryItem } from '../../models/inventory.model';
-import { toLocalDateString } from '../../utils/date.utils';
+import { toLocalDateString, parseLocalDate } from '../../utils/date.utils';
 import { CategorySelectorComponent } from '../item-form/category-selector.component';
 import { LocationSelectorComponent } from '../item-form/location-selector.component';
 import { AISuggestionDialogComponent, AISuggestionDialogData } from '../item-form/ai-suggestion-dialog.component';
@@ -42,8 +42,10 @@ interface ReviewItem {
   categoryId: number;
   // Matches manual add form fields
   locationId: number;
-  purchaseDate: string;       // YYYY-MM-DD
-  expirationDate: string;     // YYYY-MM-DD
+  purchaseDate: string;           // YYYY-MM-DD — source of truth
+  expirationDate: string;         // YYYY-MM-DD — source of truth
+  purchaseDateLocal: Date | null;     // stable Date object for matDatepicker [ngModel]
+  expirationDateLocal: Date | null;   // stable Date object for matDatepicker [ngModel]
   expireAmount: number;       // e.g., 7
   expireUnit: 'days' | 'weeks' | 'months' | 'years';
   notes: string;
@@ -134,7 +136,7 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
           <mat-label>Receipt Date</mat-label>
           <input matInput [matDatepicker]="receiptDatePicker"
             [(ngModel)]="receiptDate"
-            [max]="today">
+            [max]="todayDate">
           <mat-datepicker-toggle matSuffix [for]="receiptDatePicker"></mat-datepicker-toggle>
           <mat-datepicker #receiptDatePicker></mat-datepicker>
         </mat-form-field>
@@ -282,7 +284,7 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Purchase Date</mat-label>
               <input matInput [matDatepicker]="purchasePicker"
-                     [ngModel]="currentItem.purchaseDate"
+                     [ngModel]="currentItem.purchaseDateLocal"
                      (dateChange)="onPurchaseDateChange($event, currentItem)"
                      readonly>
               <mat-datepicker-toggle matSuffix [for]="purchasePicker"></mat-datepicker-toggle>
@@ -316,7 +318,7 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Expiration Date</mat-label>
               <input matInput [matDatepicker]="expiryPicker"
-                     [ngModel]="currentItem.expirationDate"
+                     [ngModel]="currentItem.expirationDateLocal"
                      (dateChange)="onExpiryDateChange($event, currentItem)"
                      readonly>
               <mat-datepicker-toggle matSuffix [for]="expiryPicker"></mat-datepicker-toggle>
@@ -1276,9 +1278,10 @@ export class ReceiptScanComponent implements OnInit {
   reviewMode: 'wizard' | 'table' = 'wizard';
   expandedItemIndex: number | null = null;
 
-  // Receipt date selection
-  receiptDate: string = toLocalDateString(new Date());
-  today: string = toLocalDateString(new Date());
+  // Receipt date selection — use Date objects so matDatepicker gets a stable reference
+  receiptDate: Date = new Date();
+  today: string = toLocalDateString(new Date());   // YYYY-MM-DD string for native <input type="date"> [max]
+  todayDate: Date = new Date();                    // Date object for matDatepicker [max]
 
   // Table editing state
   editingCell: { rowIndex: number; field: keyof ReviewItem } | null = null;
@@ -1354,6 +1357,16 @@ export class ReceiptScanComponent implements OnInit {
     return this.locations.find(l => l.id === locationId)?.name;
   }
 
+  // Convert a YYYY-MM-DD string to a local-midnight Date for matDatepicker display.
+  // Using new Date('YYYY-MM-DD') would produce UTC midnight, which in negative-UTC
+  // timezones shows as the previous day. parseLocalDate() uses new Date(y, m-1, d)
+  // (local midnight) to avoid that off-by-one error.
+  toLocalDate(dateStr: string | Date | null | undefined): Date | null {
+    if (!dateStr) return null;
+    if (dateStr instanceof Date) return dateStr;
+    return parseLocalDate(dateStr as string);
+  }
+
   private async analyzeReceipt(base64Image: string) {
     if (!this.userId) {
       this.showMessage('Not logged in.');
@@ -1365,10 +1378,17 @@ export class ReceiptScanComponent implements OnInit {
       const items = await this.receiptScanService.parseReceipt(base64Image, this.userId);
       const today = toLocalDateString(new Date());
 
+      // Compute purchase date from receiptDate (always a Date object now)
+      const purchaseDateLocal = this.receiptDate instanceof Date
+        ? this.receiptDate
+        : parseLocalDate(this.receiptDate as any) || new Date();
+      const purchaseDateStr = toLocalDateString(purchaseDateLocal);
+
       this.reviewItems = items.map(item => {
         const categoryId = this.resolveCategoryId(item.categoryHint);
         const expiryDays = this.receiptScanService.getDefaultExpiryDays(item.categoryHint);
-        const expiryDate = new Date();
+        // Use purchaseDateLocal as base so expiry is relative to the receipt date
+        const expiryDate = new Date(purchaseDateLocal);
         expiryDate.setDate(expiryDate.getDate() + expiryDays);
 
         return {
@@ -1381,8 +1401,10 @@ export class ReceiptScanComponent implements OnInit {
           categoryId,
           // New fields — auto-filled
           locationId: this.defaultLocationId ?? 1,
-          purchaseDate: this.receiptDate,
+          purchaseDate: purchaseDateStr,
           expirationDate: toLocalDateString(expiryDate),
+          purchaseDateLocal: purchaseDateLocal,   // stable Date ref for datepicker
+          expirationDateLocal: expiryDate,        // stable Date ref for datepicker
           expireAmount: expiryDays,
           expireUnit: 'days' as const,
           notes: '',
@@ -1496,14 +1518,17 @@ export class ReceiptScanComponent implements OnInit {
         this.updateExpirationDate(item);
       }
 
-      // If directly editing expirationDate, back-calculate expireAmount as days
+      // If directly editing purchaseDate string, sync the Local Date ref
+      if (this.editingCell.field === 'purchaseDate' && item.purchaseDate) {
+        item.purchaseDateLocal = parseLocalDate(item.purchaseDate);
+        this.updateExpirationDate(item);
+      }
+
+      // If directly editing expirationDate string, sync Local Date ref and back-calculate expireAmount
       if (this.editingCell.field === 'expirationDate' && item.purchaseDate && item.expirationDate) {
-        const purchase = new Date(
-          typeof item.purchaseDate === 'string' ? item.purchaseDate + 'T00:00:00' : item.purchaseDate
-        );
-        const expiry = new Date(
-          typeof item.expirationDate === 'string' ? item.expirationDate + 'T00:00:00' : item.expirationDate
-        );
+        item.expirationDateLocal = parseLocalDate(item.expirationDate);
+        const purchase = item.purchaseDateLocal || parseLocalDate(item.purchaseDate);
+        const expiry = item.expirationDateLocal;
         const diffDays = Math.round((expiry.getTime() - purchase.getTime()) / (1000 * 60 * 60 * 24));
         item.expireAmount = diffDays > 0 ? diffDays : 0;
         item.expireUnit = 'days';
@@ -1515,6 +1540,7 @@ export class ReceiptScanComponent implements OnInit {
   // Handler for wizard purchase date datepicker — converts Date → string (no UTC offset)
   onPurchaseDateChange(event: MatDatepickerInputEvent<Date>, item: ReviewItem) {
     if (event.value) {
+      item.purchaseDateLocal = event.value;          // keep stable Date ref
       item.purchaseDate = toLocalDateString(event.value);
       this.updateExpirationDate(item);
     }
@@ -1523,11 +1549,10 @@ export class ReceiptScanComponent implements OnInit {
   // Handler for wizard expiry date datepicker — converts Date → string and back-calculates expireAmount
   onExpiryDateChange(event: MatDatepickerInputEvent<Date>, item: ReviewItem) {
     if (event.value) {
+      item.expirationDateLocal = event.value;        // keep stable Date ref
       item.expirationDate = toLocalDateString(event.value);
       if (item.purchaseDate) {
-        const purchase = new Date(
-          typeof item.purchaseDate === 'string' ? item.purchaseDate + 'T00:00:00' : item.purchaseDate
-        );
+        const purchase = item.purchaseDateLocal || parseLocalDate(item.purchaseDate);
         const diffMs = event.value.getTime() - purchase.getTime();
         const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
         item.expireAmount = diffDays > 0 ? diffDays : 0;
@@ -1540,7 +1565,10 @@ export class ReceiptScanComponent implements OnInit {
   updateExpirationDate(item: ReviewItem) {
     if (!item.purchaseDate || !item.expireAmount) return;
 
-    const purchaseDate = new Date(item.purchaseDate);
+    // Use parseLocalDate for strings to avoid UTC -1 day in negative-offset timezones
+    const purchaseDate = typeof item.purchaseDate === 'string'
+      ? parseLocalDate(item.purchaseDate)
+      : item.purchaseDate as Date;
     let daysToAdd = item.expireAmount;
 
     // Convert to days based on unit
@@ -1562,11 +1590,8 @@ export class ReceiptScanComponent implements OnInit {
     const expiryDate = new Date(purchaseDate);
     expiryDate.setDate(expiryDate.getDate() + daysToAdd);
 
-    // Format as YYYY-MM-DD
-    const year = expiryDate.getFullYear();
-    const month = String(expiryDate.getMonth() + 1).padStart(2, '0');
-    const day = String(expiryDate.getDate()).padStart(2, '0');
-    item.expirationDate = `${year}-${month}-${day}`;
+    item.expirationDateLocal = expiryDate;           // update stable Date ref for datepicker
+    item.expirationDate = toLocalDateString(expiryDate);
   }
 
   // Open category selector bottom sheet

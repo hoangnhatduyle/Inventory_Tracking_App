@@ -1,6 +1,8 @@
 import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LocalDatePipe } from '../../pipes/local-date.pipe';
+import { parseLocalDate } from '../../utils/date.utils';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -35,6 +37,7 @@ import { ViewBatchesDialogComponent } from './view-batches-dialog.component';
   standalone: true,
   imports: [
     CommonModule,
+    LocalDatePipe,
     FormsModule,
     MatCardModule,
     MatButtonModule,
@@ -248,19 +251,19 @@ export class InventoryList implements OnInit, OnDestroy {
     if (this.selectedStatus === 'expired') {
       filtered = filtered.filter(item => {
         if (!item.expirationDate) return false;
-        const expDate = new Date(item.expirationDate);
+        const expDate = typeof item.expirationDate === 'string' ? parseLocalDate(item.expirationDate) : new Date(item.expirationDate);
         return expDate < today;
       });
     } else if (this.selectedStatus === 'expiring-soon') {
       filtered = filtered.filter(item => {
         if (!item.expirationDate) return false;
-        const expDate = new Date(item.expirationDate);
+        const expDate = typeof item.expirationDate === 'string' ? parseLocalDate(item.expirationDate) : new Date(item.expirationDate);
         return expDate >= today && expDate <= threeDaysFromNow;
       });
     } else if (this.selectedStatus === 'fresh') {
       filtered = filtered.filter(item => {
         if (!item.expirationDate) return true;
-        const expDate = new Date(item.expirationDate);
+        const expDate = typeof item.expirationDate === 'string' ? parseLocalDate(item.expirationDate) : new Date(item.expirationDate);
         return expDate > threeDaysFromNow;
       });
     }
@@ -272,7 +275,7 @@ export class InventoryList implements OnInit, OnDestroy {
           if (!a.expirationDate && !b.expirationDate) return 0;
           if (!a.expirationDate) return 1;
           if (!b.expirationDate) return -1;
-          return new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime();
+          return (typeof a.expirationDate === 'string' ? parseLocalDate(a.expirationDate) : new Date(a.expirationDate)).getTime() - (typeof b.expirationDate === 'string' ? parseLocalDate(b.expirationDate) : new Date(b.expirationDate)).getTime();
         case 'name':
           return a.name.localeCompare(b.name);
         case 'quantity':
