@@ -1329,7 +1329,8 @@ export class ReceiptScanComponent implements OnInit {
   async capturePhoto(source: 'camera' | 'gallery') {
     try {
       const photo = await Camera.getPhoto({
-        quality: 85,
+        quality: 60,       // lower quality reduces payload size (receipts don't need high fidelity)
+        width: 1600,       // cap width — enough for OpenAI to read text, keeps base64 under ~1 MB
         allowEditing: false,
         resultType: CameraResultType.Base64,
         source: source === 'camera' ? CameraSource.Camera : CameraSource.Photos
@@ -1417,7 +1418,7 @@ export class ReceiptScanComponent implements OnInit {
       this.expandedItemIndex = null;
       this.step = 'mode-select';
     } catch (err: any) {
-      console.error('[ReceiptScan] analyzeReceipt error:', err);
+      console.error('[ReceiptScan] analyzeReceipt error:', err instanceof Error ? err.message : String(err));
       this.showMessage(err?.message || 'Failed to parse receipt. Please try again.');
       this.step = 'capture';
     }

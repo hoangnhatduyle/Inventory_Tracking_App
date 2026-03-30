@@ -115,7 +115,7 @@ export class ReceiptScanService {
               ]
             }
           ],
-          max_completion_tokens: 2000
+          max_completion_tokens: 8000  // gpt-5-mini is a reasoning model; needs budget for thinking tokens + response
         })
       });
 
@@ -130,17 +130,29 @@ export class ReceiptScanService {
       }
 
       const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
+      const message = data.choices?.[0]?.message;
+      const content = message?.content;
 
       if (!content) {
-        throw new Error('No response from OpenAI API');
+        // Log the raw response so we can diagnose what OpenAI actually returned
+        const refusal = message?.refusal;
+        const finishReason = data.choices?.[0]?.finish_reason;
+        console.error('[ReceiptScanService] Empty content from OpenAI. finish_reason:', finishReason, 'refusal:', refusal, 'full response:', JSON.stringify(data).slice(0, 500));
+        if (refusal) {
+          throw new Error(`OpenAI refused the request: ${refusal}`);
+        }
+        if (finishReason === 'content_filter') {
+          throw new Error('OpenAI content filter blocked the receipt image. Try a different photo.');
+        }
+        throw new Error(`No content in OpenAI response (finish_reason: ${finishReason ?? 'unknown'})`);
       }
 
       const items = this.parseResponse(content);
       await this.logUsage(userId, items.length);
       return items;
     } catch (error) {
-      console.error('[ReceiptScanService] parseReceipt failed:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error('[ReceiptScanService] parseReceipt failed:', msg);
       await this.logUsage(userId, 0);
       throw error;
     }
