@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -36,7 +36,7 @@ import { RecipeFormDialogComponent } from '../../components/recipe-manager/recip
   template: `
     <div class="recipe-manager-container">
       <div class="header">
-        <button mat-icon-button (click)="onBack()" class="back-button">
+        <button mat-icon-button (click)="onBack()" class="back-button" *ngIf="!embedded">
           <mat-icon>arrow_back</mat-icon>
         </button>
         <h1>Recipe Manager</h1>
@@ -286,6 +286,8 @@ import { RecipeFormDialogComponent } from '../../components/recipe-manager/recip
   `]
 })
 export class RecipeManagerComponent implements OnInit {
+  @Input() embedded = false;
+
   recipes: Recipe[] = [];
   filteredRecipes: Recipe[] = [];
   searchQuery = '';

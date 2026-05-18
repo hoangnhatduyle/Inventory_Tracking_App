@@ -8,6 +8,7 @@ import { WasteTrackingComponent } from './components/waste-tracking/waste-tracki
 import { Settings } from './components/settings/settings';
 import { RecipeManagerComponent } from './components/recipe-manager/recipe-manager.component';
 import { ReceiptScanComponent } from './components/receipt-scan/receipt-scan.component';
+import { MealPlanComponent } from './components/meal-plan/meal-plan';
 import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
@@ -15,6 +16,7 @@ export const routes: Routes = [
   { path: 'login', component: Login },
   { path: 'dashboard', component: Dashboard, canActivate: [authGuard] },
   { path: 'inventory', component: InventoryList, canActivate: [authGuard] },
+  { path: 'meal-plan', component: MealPlanComponent, canActivate: [authGuard] },
   { path: 'item/add', component: ItemForm, canActivate: [authGuard] },
   { path: 'item/edit/:id', component: ItemForm, canActivate: [authGuard] },
   { path: 'shopping-list', component: ShoppingList, canActivate: [authGuard] },

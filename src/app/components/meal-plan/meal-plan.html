@@ -1,0 +1,296 @@
+<div class="meal-plan-container animate-fade-in" [class.calendar-mode]="activeView === 'calendar'">
+
+  <!-- Page header -->
+  <div class="meal-plan-header">
+    <h1 class="page-title">
+      <mat-icon>restaurant_menu</mat-icon>
+      Meal Plan
+    </h1>
+
+    <div class="controls-row">
+      <!-- 3-way view toggle -->
+      <mat-button-toggle-group [(ngModel)]="activeView" (change)="onViewToggle()">
+        <mat-button-toggle value="calendar">
+          <mat-icon>calendar_month</mat-icon>
+          Calendar
+        </mat-button-toggle>
+        <mat-button-toggle value="recipes">
+          <mat-icon>menu_book</mat-icon>
+          Recipes
+        </mat-button-toggle>
+        <mat-button-toggle value="summary">
+          <mat-icon>bar_chart</mat-icon>
+          Summary
+        </mat-button-toggle>
+      </mat-button-toggle-group>
+
+      <!-- Week / Month toggle (calendar only) -->
+      <mat-button-toggle-group *ngIf="activeView === 'calendar'" [(ngModel)]="calendarMode" (change)="onCalendarModeChange()">
+        <mat-button-toggle value="weekly">Week</mat-button-toggle>
+        <mat-button-toggle value="monthly">Month</mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+  </div>
+
+  <!-- Navigation bar (calendar only) -->
+  <div class="nav-bar" *ngIf="activeView === 'calendar'">
+    <button mat-icon-button (click)="navigate(-1)" matTooltip="Previous">
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+    <span class="period-label">{{ periodLabel }}</span>
+    <button mat-icon-button (click)="navigate(1)" matTooltip="Next">
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+    <button mat-stroked-button class="today-btn" (click)="goToToday()">Today</button>
+  </div>
+
+  <!-- Loading spinner -->
+  <div class="loading-container" *ngIf="loading">
+    <mat-spinner diameter="48"></mat-spinner>
+  </div>
+
+  <!-- ===== CALENDAR VIEW ===== -->
+  <ng-container *ngIf="activeView === 'calendar' && !loading">
+
+    <!-- ---- WEEKLY VIEW ---- -->
+    <div class="weekly-grid-wrapper" *ngIf="calendarMode === 'weekly'">
+      <div class="weekly-grid">
+
+        <!-- Header row -->
+        <div class="weekly-header-row">
+          <div class="meal-type-col-header"></div>
+          <div *ngFor="let day of weekDays"
+               class="day-header"
+               [class.today]="day.isToday">
+            {{ day.label }}
+          </div>
+        </div>
+
+        <!-- Breakfast / Lunch / Dinner rows -->
+        <div *ngFor="let mt of mealTypes" class="weekly-meal-row">
+          <div class="meal-type-label">
+            <mat-icon>{{ mealTypeIcon(mt) }}</mat-icon>
+            <span>{{ mt | titlecase }}</span>
+          </div>
+          <div *ngFor="let day of weekDays"
+               class="meal-cell"
+               (click)="openAddDialog(day.dateStr, mt)">
+
+            <div *ngFor="let entry of getMealsForCell(day.dateStr, mt)"
+                 class="meal-chip animate-scale-in"
+                 (click)="openEditDialog(entry); $event.stopPropagation()">
+              <span class="meal-chip-name" [title]="entry.mealName">{{ entry.mealName }}</span>
+              <div class="meal-chip-actions">
+                <mat-icon
+                  class="chip-action-icon"
+                  [class.starred]="entry.isFavorite"
+                  (click)="onToggleFavorite(entry, $event)"
+                  [matTooltip]="entry.isFavorite ? 'Remove favorite' : 'Mark as favorite'">
+                  {{ entry.isFavorite ? 'star' : 'star_border' }}
+                </mat-icon>
+                <mat-icon
+                  class="chip-action-icon del-icon"
+                  (click)="onDeleteEntry(entry, $event)"
+                  matTooltip="Remove">
+                  close
+                </mat-icon>
+              </div>
+            </div>
+
+            <div class="add-meal-hint">
+              <mat-icon>add</mat-icon>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ---- MONTHLY VIEW ---- -->
+    <div class="monthly-grid-wrapper" *ngIf="calendarMode === 'monthly'">
+      <div class="month-header-row">
+        <div *ngFor="let dow of ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']" class="dow-header">
+          {{ dow }}
+        </div>
+      </div>
+      <div class="month-rows-wrapper">
+        <div *ngFor="let week of monthDays" class="month-row">
+          <div *ngFor="let day of week"
+               class="month-cell hover-lift"
+               [class.empty-cell]="!day"
+               [class.today]="day?.isToday"
+               (click)="day && onMonthDayClick(day)">
+
+            <ng-container *ngIf="day">
+              <span class="day-number">{{ day.date.getDate() }}</span>
+              <div class="meal-dots">
+                <span *ngIf="hasMealType(day.dateStr, 'breakfast')" class="dot breakfast" matTooltip="Breakfast"></span>
+                <span *ngIf="hasMealType(day.dateStr, 'lunch')"     class="dot lunch"     matTooltip="Lunch"></span>
+                <span *ngIf="hasMealType(day.dateStr, 'dinner')"    class="dot dinner"    matTooltip="Dinner"></span>
+              </div>
+              <span *ngIf="getMealsForDay(day.dateStr).length > 0" class="count-chip">
+                {{ getMealsForDay(day.dateStr).length }}
+              </span>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </ng-container>
+
+  <!-- ===== RECIPES VIEW ===== -->
+  <app-recipe-manager *ngIf="activeView === 'recipes'" [embedded]="true"></app-recipe-manager>
+
+  <!-- ===== SUMMARY VIEW ===== -->
+  <ng-container *ngIf="activeView === 'summary' && !loading">
+
+    <div *ngIf="summary" class="summary-container stagger-animation">
+
+      <!-- Row 1: quick stat cards -->
+      <mat-card class="stat-card primary-card hover-lift">
+        <mat-card-content>
+          <div class="stat-icon">
+            <mat-icon>restaurant</mat-icon>
+          </div>
+          <div class="stat-info">
+            <h2>{{ summary.totalMeals }}</h2>
+            <p>Total Meals Logged</p>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card accent-card hover-lift">
+        <mat-card-content>
+          <div class="stat-icon">
+            <mat-icon>local_fire_department</mat-icon>
+          </div>
+          <div class="stat-info">
+            <h2>{{ summary.currentStreak }}</h2>
+            <p>Day Streak</p>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card hover-lift">
+        <mat-card-content>
+          <div class="stat-icon blue">
+            <mat-icon>today</mat-icon>
+          </div>
+          <div class="stat-info">
+            <h2>{{ summary.thisWeekCount }}</h2>
+            <p>This Week</p>
+            <div class="week-progress">
+              <div class="week-label">{{ summary.thisWeekCount }} / 21 slots filled</div>
+              <mat-progress-bar mode="determinate"
+                [value]="(summary.thisWeekCount / 21) * 100"
+                color="primary">
+              </mat-progress-bar>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Breakdown by type -->
+      <mat-card class="hover-lift">
+        <mat-card-header>
+          <mat-card-title>By Meal Type</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="type-row" *ngFor="let mt of mealTypes">
+            <mat-icon class="type-icon {{ mt }}">{{ mealTypeIcon(mt) }}</mat-icon>
+            <span class="type-name">{{ mt | titlecase }}</span>
+            <span class="type-count">{{ summary.breakdownByType[mt] }}</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Most frequent meals -->
+      <mat-card class="hover-lift">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>trending_up</mat-icon>
+            Most Frequent
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="freq-row" *ngFor="let item of summary.mostFrequentMeals; let i = index">
+            <span class="rank">{{ i + 1 }}</span>
+            <span class="freq-name">{{ item.mealName }}</span>
+            <span class="freq-chip">{{ item.count }}×</span>
+          </div>
+          <p class="empty-hint" *ngIf="summary.mostFrequentMeals.length === 0">No meals logged yet.</p>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Monthly history -->
+      <mat-card class="hover-lift" *ngIf="summary.monthlyBreakdown.length > 0">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>calendar_view_month</mat-icon>
+            Monthly History
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="month-bar-row" *ngFor="let m of summary.monthlyBreakdown">
+            <span class="month-label">{{ m.month }}</span>
+            <div class="month-bar-track">
+              <div class="month-bar-fill" [style.width.%]="m.percentage"></div>
+            </div>
+            <span class="month-count">{{ m.count }}</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Recent meals -->
+      <mat-card class="hover-lift" *ngIf="summary.recentMeals.length > 0">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>history</mat-icon>
+            Recent Meals
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="recent-row hover-lift"
+               *ngFor="let m of summary.recentMeals"
+               (click)="openSummaryEditDialog(m)">
+            <mat-icon class="recent-type-icon {{ m.mealType }}">{{ mealTypeIcon(m.mealType) }}</mat-icon>
+            <div class="recent-info">
+              <span class="recent-name">{{ m.mealName }}</span>
+              <span class="recent-meta">{{ m.planDate }} · {{ m.mealType | titlecase }}</span>
+            </div>
+            <mat-icon class="fav-star" *ngIf="m.isFavorite">star</mat-icon>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Favorites -->
+      <mat-card class="hover-lift">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon style="color: #ff9800">star</mat-icon>
+            Favorites
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="fav-row hover-lift"
+               *ngFor="let m of summary.favoriteMeals"
+               (click)="openSummaryEditDialog(m)">
+            <mat-icon class="fav-star">star</mat-icon>
+            <div class="fav-info">
+              <span class="fav-name">{{ m.mealName }}</span>
+              <span class="fav-meta">{{ m.planDate }} · {{ m.mealType | titlecase }}</span>
+            </div>
+            <mat-icon class="fav-edit">edit</mat-icon>
+          </div>
+          <p class="empty-hint" *ngIf="summary.favoriteMeals.length === 0">
+            No favorites yet. Star a meal to add it here.
+          </p>
+        </mat-card-content>
+      </mat-card>
+
+    </div>
+
+  </ng-container>
+
+</div>

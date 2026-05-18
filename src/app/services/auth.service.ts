@@ -10,7 +10,6 @@ import { Router } from '@angular/router';
 })
 export class AuthService {
   private readonly SESSION_KEY = 'inventory_session';
-  private readonly SESSION_DURATION_DAYS = 30;
   private currentUser: User | null = null;
   private authStateSubject = new BehaviorSubject<boolean>(false);
   public authState$: Observable<boolean> = this.authStateSubject.asObservable();
@@ -113,15 +112,6 @@ export class AuthService {
       }
 
       const session: Session = JSON.parse(sessionData);
-      
-      // Check if session is expired
-      const expiresAt = new Date(session.expiresAt);
-      const now = new Date();
-
-      if (now > expiresAt) {
-        await this.logout();
-        return false;
-      }
 
       // Verify session in database
       const query = `SELECT * FROM sessions WHERE token = ? AND user_id = ?`;
@@ -151,9 +141,8 @@ export class AuthService {
       // Generate session token
       const token = this.generateToken();
       
-      // Calculate expiration date
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + this.SESSION_DURATION_DAYS);
+      // Sessions never expire — far-future date satisfies the DB column constraint
+      const expiresAt = new Date(9999, 11, 31);
 
       // Delete old sessions for this user
       const deleteQuery = `DELETE FROM sessions WHERE user_id = ?`;
@@ -231,13 +220,6 @@ export class AuthService {
 
       if (!tokenResult.values || tokenResult.values.length === 0) {
         // Token is invalid or expired
-        localStorage.removeItem(this.SESSION_KEY);
-        return null;
-      }
-
-      // Check session expiry
-      const expiresAt = new Date(session.expiresAt);
-      if (new Date() > expiresAt) {
         localStorage.removeItem(this.SESSION_KEY);
         return null;
       }

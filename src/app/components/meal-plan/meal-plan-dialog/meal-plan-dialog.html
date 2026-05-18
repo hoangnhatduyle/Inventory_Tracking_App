@@ -1,0 +1,81 @@
+<h2 mat-dialog-title>
+  <mat-icon>{{ isEditMode ? 'edit' : 'add_circle' }}</mat-icon>
+  {{ isEditMode ? 'Edit Meal' : 'Add Meal' }}
+</h2>
+
+<mat-dialog-content>
+  <form>
+
+    <!-- Meal Name with recipe autocomplete -->
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Meal Name</mat-label>
+      <input
+        matInput
+        [(ngModel)]="formData.mealName"
+        name="mealName"
+        required
+        (ngModelChange)="onMealNameChange($event)"
+        [matAutocomplete]="recipeAuto"
+        placeholder="Type a meal or pick from recipes…">
+      <mat-icon matPrefix>restaurant</mat-icon>
+      <mat-autocomplete #recipeAuto (optionSelected)="onOptionSelected($event.option.value)">
+        <mat-option *ngFor="let opt of filteredOptions" [value]="opt">
+          <mat-icon style="font-size:1rem;vertical-align:middle;margin-right:4px">menu_book</mat-icon>
+          {{ opt.label }}
+        </mat-option>
+      </mat-autocomplete>
+    </mat-form-field>
+
+    <!-- Meal Type -->
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Meal Type</mat-label>
+      <mat-select [(ngModel)]="formData.mealType" name="mealType">
+        <mat-option *ngFor="let mt of mealTypes" [value]="mt">
+          <mat-icon style="vertical-align:middle;margin-right:6px">{{ mealTypeIcon(mt) }}</mat-icon>
+          {{ mt | titlecase }}
+        </mat-option>
+      </mat-select>
+      <mat-icon matPrefix>schedule</mat-icon>
+    </mat-form-field>
+
+    <!-- Date -->
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Date</mat-label>
+      <input matInput type="date" [(ngModel)]="formData.planDate" name="planDate">
+      <mat-icon matPrefix>calendar_today</mat-icon>
+    </mat-form-field>
+
+    <!-- Favorite toggle -->
+    <div class="favorite-row">
+      <mat-icon [style.color]="formData.isFavorite ? '#ff9800' : '#bdbdbd'">
+        {{ formData.isFavorite ? 'star' : 'star_border' }}
+      </mat-icon>
+      <span class="favorite-label">Mark as Favorite</span>
+      <mat-slide-toggle
+        [(ngModel)]="formData.isFavorite"
+        name="isFavorite"
+        color="accent">
+      </mat-slide-toggle>
+    </div>
+
+    <!-- Notes -->
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Notes (optional)</mat-label>
+      <textarea matInput [(ngModel)]="formData.notes" name="notes" rows="2"></textarea>
+      <mat-icon matPrefix>notes</mat-icon>
+    </mat-form-field>
+
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">Cancel</button>
+  <button
+    mat-raised-button
+    color="primary"
+    [disabled]="!isFormValid()"
+    (click)="onSave()">
+    <mat-icon>save</mat-icon>
+    {{ isEditMode ? 'Update' : 'Add Meal' }}
+  </button>
+</mat-dialog-actions>

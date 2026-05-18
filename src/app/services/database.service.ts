@@ -64,6 +64,9 @@ export class DatabaseService {
       // Migrate wasted_items table to remove bad FK constraint
       await this.migrateWastedItemsSchema();
 
+      // Ensure meal_plans table exists for upgrades from older versions
+      await this.migrateMealPlanSchema();
+
       this.isInitialized = true;
       console.log('Database initialized successfully');
     } catch (error) {
@@ -100,7 +103,8 @@ export class DatabaseService {
         wasted_items: [],
         barcode_mappings: [],
         usage_history: [],
-        ai_usage_log: []
+        ai_usage_log: [],
+        meal_plans: []
       };
       localStorage.setItem('inventory_db', JSON.stringify(initialDb));
     }
@@ -261,6 +265,22 @@ export class DatabaseService {
         notes TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE
+      );`,
+
+      // Meal plans table
+      `CREATE TABLE IF NOT EXISTS meal_plans (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id     INTEGER NOT NULL,
+        plan_date   DATE    NOT NULL,
+        meal_type   TEXT    NOT NULL CHECK(meal_type IN ('breakfast','lunch','dinner')),
+        meal_name   TEXT    NOT NULL,
+        recipe_id   INTEGER,
+        is_favorite INTEGER NOT NULL DEFAULT 0,
+        notes       TEXT,
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id)   REFERENCES users(id),
+        FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE SET NULL
       );`
     ];
 
@@ -545,6 +565,22 @@ export class DatabaseService {
     } catch (error) {
       console.error('wasted_items schema migration failed:', error);
       console.error('Error details:', JSON.stringify(error, null, 2));
+    }
+  }
+
+  private async migrateMealPlanSchema(): Promise<void> {
+    try {
+      if (Capacitor.getPlatform() === 'web') {
+        const db = JSON.parse(localStorage.getItem('inventory_db') || '{}');
+        if (!db.meal_plans) {
+          db.meal_plans = [];
+          localStorage.setItem('inventory_db', JSON.stringify(db));
+        }
+        return;
+      }
+      // Native: CREATE TABLE IF NOT EXISTS in createTables() already handles it.
+    } catch (error) {
+      console.warn('meal_plans schema migration skipped:', error);
     }
   }
 
@@ -1012,7 +1048,8 @@ export class DatabaseService {
     'users',
     'inventory_items', 'inventory_batches', 'categories', 'locations',
     'shopping_list', 'wasted_items', 'recipes', 'barcode_mappings',
-    'notification_log', 'ai_usage_log', 'usage_history', 'item_images'
+    'notification_log', 'ai_usage_log', 'usage_history', 'item_images',
+    'meal_plans'
   ]);
 
   /** Validate table name against allowlist */
@@ -1053,7 +1090,8 @@ export class DatabaseService {
           wasted_items: ['id', 'user_id', 'item_name', 'category_id', 'quantity', 'unit', 'price', 'wasted_date'],
           barcode_mappings: ['id', 'barcode', 'item_name', 'category_id', 'user_id', 'created_at', 'suggested_shelf_life_days', 'ai_note'],
           usage_history: ['id', 'item_id', 'amount_used', 'remaining_amount', 'notes', 'recorded_at'],
-          ai_usage_log: ['id', 'user_id', 'request_type', 'item_name', 'response_days', 'response_note', 'created_at']
+          ai_usage_log: ['id', 'user_id', 'request_type', 'item_name', 'response_days', 'response_note', 'created_at'],
+          meal_plans: ['id', 'user_id', 'plan_date', 'meal_type', 'meal_name', 'recipe_id', 'is_favorite', 'notes', 'created_at', 'updated_at']
         };
         const cols = defaultColumns[tableName] || ['id'];
         return cols.map(name => ({ name, type: 'TEXT', notnull: false, pk: name === 'id' }));

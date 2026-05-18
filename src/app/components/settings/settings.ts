@@ -145,10 +145,6 @@ export class Settings implements OnInit {
     }
   }
 
-  navigateToRecipeManager() {
-    this.router.navigate(['/recipe-manager']);
-  }
-
   async exportInventory() {
     if (!this.userId) return;
 
