@@ -5,8 +5,7 @@
   "installCommand": "npm ci --legacy-peer-deps && cd api && npm ci",
   "framework": null,
   "functions": {
-    "api/ai/*.ts": { "runtime": "@vercel/node@3.2.20", "maxDuration": 60 },
-    "api/**/*.ts": { "runtime": "@vercel/node@3.2.20", "maxDuration": 30 }
+    "api/[...path].ts": { "maxDuration": 60 }
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
