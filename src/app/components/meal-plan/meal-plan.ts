@@ -14,7 +14,13 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../../services/auth.service';
 import { MealPlanService } from '../../services/meal-plan.service';
-import { MealPlan, MealType, WeekDay, MealOption, MealPlanSummary } from '../../models/meal-plan.model';
+import {
+  MealPlan,
+  MealType,
+  WeekDay,
+  MealOption,
+  MealPlanSummary,
+} from '../../models/meal-plan.model';
 import { MealPlanDialogComponent } from './meal-plan-dialog/meal-plan-dialog';
 import { RecipeManagerComponent } from '../recipe-manager/recipe-manager.component';
 import { toLocalDateString } from '../../utils/date.utils';
@@ -36,10 +42,10 @@ import { toLocalDateString } from '../../utils/date.utils';
     MatChipsModule,
     MatTooltipModule,
     RecipeManagerComponent,
-    DragDropModule
+    DragDropModule,
   ],
   templateUrl: './meal-plan.html',
-  styleUrl: './meal-plan.scss'
+  styleUrl: './meal-plan.scss',
 })
 export class MealPlanComponent implements OnInit {
   userId: string | null = null;
@@ -70,7 +76,7 @@ export class MealPlanComponent implements OnInit {
     private authService: AuthService,
     private mealPlanService: MealPlanService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -209,7 +215,7 @@ export class MealPlanComponent implements OnInit {
         date: d,
         dateStr,
         label: d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }),
-        isToday: dateStr === todayStr
+        isToday: dateStr === todayStr,
       };
     });
   }
@@ -243,19 +249,19 @@ export class MealPlanComponent implements OnInit {
   }
 
   getMealsForCell(dateStr: string, mealType: MealType): MealPlan[] {
-    return this.weeklyMeals.filter(m => m.planDate === dateStr && m.mealType === mealType);
+    return this.weeklyMeals.filter((m) => m.planDate === dateStr && m.mealType === mealType);
   }
 
   getMealsForDay(dateStr: string): MealPlan[] {
-    return this.monthlyMeals.filter(m => m.planDate === dateStr);
+    return this.monthlyMeals.filter((m) => m.planDate === dateStr);
   }
 
   hasMealType(dateStr: string, mealType: MealType): boolean {
-    return this.monthlyMeals.some(m => m.planDate === dateStr && m.mealType === mealType);
+    return this.monthlyMeals.some((m) => m.planDate === dateStr && m.mealType === mealType);
   }
 
   getMealNameForType(dateStr: string, mealType: MealType): string | null {
-    const meal = this.monthlyMeals.find(m => m.planDate === dateStr && m.mealType === mealType);
+    const meal = this.monthlyMeals.find((m) => m.planDate === dateStr && m.mealType === mealType);
     return meal ? meal.mealName : null;
   }
 
@@ -269,7 +275,7 @@ export class MealPlanComponent implements OnInit {
     if (!this.userId) return;
     const ref = this.dialog.open(MealPlanDialogComponent, {
       width: '480px',
-      data: { entry: null, dateStr, mealType, recipeOptions: this.recipeOptions }
+      data: { entry: null, dateStr, mealType, recipeOptions: this.recipeOptions },
     });
     ref.afterClosed().subscribe(async (result) => {
       if (!result) return;
@@ -287,7 +293,12 @@ export class MealPlanComponent implements OnInit {
   openEditDialog(entry: MealPlan): void {
     const ref = this.dialog.open(MealPlanDialogComponent, {
       width: '480px',
-      data: { entry, dateStr: entry.planDate, mealType: entry.mealType, recipeOptions: this.recipeOptions }
+      data: {
+        entry,
+        dateStr: entry.planDate,
+        mealType: entry.mealType,
+        recipeOptions: this.recipeOptions,
+      },
     });
     ref.afterClosed().subscribe(async (result) => {
       if (!result) return;
@@ -316,8 +327,8 @@ export class MealPlanComponent implements OnInit {
     if (!confirm(`Remove "${entry.mealName}" from your meal plan?`)) return;
     const ok = await this.mealPlanService.deleteMealPlan(entry.id!);
     if (ok) {
-      this.weeklyMeals = this.weeklyMeals.filter(m => m.id !== entry.id);
-      this.monthlyMeals = this.monthlyMeals.filter(m => m.id !== entry.id);
+      this.weeklyMeals = this.weeklyMeals.filter((m) => m.id !== entry.id);
+      this.monthlyMeals = this.monthlyMeals.filter((m) => m.id !== entry.id);
       if (this.summary) {
         this.summary.favoriteMeals = this.summary.favoriteMeals.filter((m) => m.id !== entry.id);
         this.summary.recentMeals = this.summary.recentMeals.filter((m) => m.id !== entry.id);
@@ -346,7 +357,7 @@ export class MealPlanComponent implements OnInit {
       mealName: entry.mealName,
       recipeId: entry.recipeId ?? null,
       isFavorite: false,
-      notes: entry.notes
+      notes: entry.notes,
     });
     await this.loadWeeklyMeals();
   }
