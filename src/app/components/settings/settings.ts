@@ -48,14 +48,10 @@ import { CategoryDialogComponent } from './category-dialog.component';
 
 import { toLocalDateString } from '../../utils/date.utils';
 
-
-
 @Component({
-
   selector: 'app-settings',
 
   imports: [
-
     CommonModule,
 
     FormsModule,
@@ -85,17 +81,13 @@ import { toLocalDateString } from '../../utils/date.utils';
     MatTooltipModule,
 
     MatTabsModule,
-
   ],
 
   templateUrl: './settings.html',
 
   styleUrl: './settings.scss',
-
 })
-
 export class Settings implements OnInit {
-
   private readonly router = inject(Router);
 
   private readonly authService = inject(AuthService);
@@ -110,24 +102,19 @@ export class Settings implements OnInit {
 
   private readonly snackBar = inject(MatSnackBar);
 
-
-
   locations: Location[] = [];
 
   categories: Category[] = [];
 
   userId: string | null = null;
 
-  currentUser: { id?: string; email?: string; username?: string } | null = null;
+  currentUser: { id?: string; email?: string; username?: string; createdAt?: string } | null = null;
 
   pushSupported = false;
 
   pushSubscribed = false;
 
-
-
   async ngOnInit() {
-
     this.userId = await this.authService.getCurrentUserId();
 
     this.currentUser = await this.authService.getCurrentUser();
@@ -135,223 +122,138 @@ export class Settings implements OnInit {
     this.pushSupported = this.notificationService.isSupported();
 
     if (this.userId) {
-
       await Promise.all([this.loadLocations(), this.loadCategories()]);
-
     }
 
     this.pushSubscribed = await this.notificationService.isSubscribed();
-
   }
 
-
-
   async loadLocations() {
-
     if (!this.userId) return;
 
     this.locations = await this.inventoryService.getLocations();
-
   }
 
-
-
   async loadCategories() {
-
     if (!this.userId) return;
 
     this.categories = await this.inventoryService.getCategories();
-
   }
 
-
-
   openAddCategoryDialog() {
-
     const dialogRef = this.dialog.open(CategoryDialogComponent, {
-
       width: '400px',
 
       data: { category: null },
-
     });
 
     dialogRef.afterClosed().subscribe(async (result) => {
-
       if (result) {
-
         await this.loadCategories();
 
         this.showMessage('Category added successfully');
-
       }
-
     });
-
   }
 
-
-
   openEditCategoryDialog(category: Category) {
-
     const dialogRef = this.dialog.open(CategoryDialogComponent, {
-
       width: '400px',
 
       data: { category },
-
     });
 
     dialogRef.afterClosed().subscribe(async (result) => {
-
       if (result) {
-
         await this.loadCategories();
 
         this.showMessage('Category updated successfully');
-
       }
-
     });
-
   }
 
-
-
   async deleteCategory(category: Category) {
-
     if (!category.id || category.isSystem) return;
 
     if (!confirm(`Delete category "${category.name}"? Items using it will need to be updated.`)) {
-
       return;
-
     }
 
     const success = await this.inventoryService.deleteCategory(category.id);
 
     if (success) {
-
       await this.loadCategories();
 
       this.showMessage('Category deleted successfully');
-
     } else {
-
       this.showMessage('Failed to delete category');
-
     }
-
   }
 
-
-
   openAddLocationDialog() {
-
     const dialogRef = this.dialog.open(LocationDialogComponent, {
-
       width: '400px',
 
       data: { location: null, userId: this.userId },
-
     });
 
-
-
     dialogRef.afterClosed().subscribe(async (result) => {
-
       if (result) {
-
         await this.loadLocations();
 
         this.showMessage('Location added successfully');
-
       }
-
     });
-
   }
 
-
-
   openEditLocationDialog(location: Location) {
-
     const dialogRef = this.dialog.open(LocationDialogComponent, {
-
       width: '400px',
 
       data: { location, userId: this.userId },
-
     });
 
-
-
     dialogRef.afterClosed().subscribe(async (result) => {
-
       if (result) {
-
         await this.loadLocations();
 
         this.showMessage('Location updated successfully');
-
       }
-
     });
-
   }
 
-
-
   async deleteLocation(location: Location) {
-
     if (!location.id) return;
 
     if (
-
       !confirm(
-
         `Delete location "${location.name}"? Items using this location will need to be updated.`,
-
       )
-
     ) {
-
       return;
-
     }
 
     const success = await this.inventoryService.deleteLocation(location.id);
 
     if (success) {
-
       await this.loadLocations();
 
       this.showMessage('Location deleted successfully');
-
     } else {
-
       this.showMessage('Failed to delete location');
-
     }
-
   }
 
-
-
   async exportInventory() {
-
     if (!this.userId) return;
 
     try {
-
       const items = await this.inventoryService.getItems();
 
       if (!items?.length) {
-
         this.showMessage('No items to export');
 
         return;
-
       }
 
       const csv = this.statisticsService.buildInventoryCsv(items);
@@ -373,93 +275,55 @@ export class Settings implements OnInit {
       URL.revokeObjectURL(url);
 
       this.showMessage('Inventory exported');
-
     } catch (err) {
-
       console.error('Export error', err);
 
       this.showMessage('Export failed');
-
     }
-
   }
 
-
-
   async enableNotifications() {
-
     const granted = await this.notificationService.requestPermissions();
 
     this.pushSubscribed = await this.notificationService.isSubscribed();
 
     if (granted) {
-
       this.showMessage('Push notifications enabled');
-
     } else {
-
       this.showMessage('Could not enable push notifications');
-
     }
-
   }
 
-
-
   async disableNotifications() {
-
     await this.notificationService.unsubscribe();
 
     this.pushSubscribed = false;
 
     this.showMessage('Push notifications disabled');
-
   }
 
-
-
   async sendTestNotification() {
-
     const ok = await this.notificationService.sendTestNotification();
 
     this.showMessage(ok ? 'Test notification sent' : 'Failed to send test notification');
-
   }
-
-
 
   getLocationDisplay(location: Location): string {
-
-    return location.subLocation
-
-      ? `${location.name} - ${location.subLocation}`
-
-      : location.name;
-
+    return location.subLocation ? `${location.name} - ${location.subLocation}` : location.name;
   }
-
-
 
   async signOut() {
     await this.notificationService.unsubscribe();
     await this.authService.logout();
   }
 
-
-
   private showMessage(message: string) {
-
     this.snackBar.open(message, 'Close', {
-
       duration: 3000,
 
       horizontalPosition: 'center',
 
       verticalPosition: 'top',
-
     });
-
   }
-
 }
-

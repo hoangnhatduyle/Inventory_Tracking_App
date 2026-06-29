@@ -84,25 +84,25 @@ const routes: Route[] = [
 ];
 
 function getParts(req: VercelRequest): string[] {
-  const raw = (req.query as Record<string, string | string[] | undefined>).path;
-  let parts: string[];
-  if (Array.isArray(raw)) parts = raw;
-  else if (typeof raw === 'string' && raw.length) parts = raw.split('/');
-  else {
-    const urlPath = (req.url ?? '').split('?')[0];
-    parts = urlPath
-      .replace(/^\/+/, '')
-      .replace(/^api\/?/, '')
-      .split('/')
-      .filter(Boolean);
+  const q = req.query as Record<string, string | string[] | undefined>;
+  // Primary source: the `__path` query param injected by the vercel.json
+  // rewrite (`/api/(.*) -> /api/handler?__path=$1`). Fall back to parsing the
+  // raw URL so the function still works if hit directly.
+  const raw = q.__path ?? q.path;
+  let pathStr: string;
+  if (Array.isArray(raw)) pathStr = raw.join('/');
+  else if (typeof raw === 'string' && raw.length) pathStr = raw;
+  else pathStr = (req.url ?? '').split('?')[0].replace(/^\/+/, '').replace(/^api\/?/, '');
+
+  // Decode BEFORE splitting so a slash that Vercel percent-encoded inside the
+  // rewrite capture (e.g. "statistics%2Fdashboard") still splits into segments.
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathStr);
+  } catch {
+    decoded = pathStr;
   }
-  return parts.map((p) => {
-    try {
-      return decodeURIComponent(p);
-    } catch {
-      return p;
-    }
-  });
+  return decoded.split('/').filter(Boolean);
 }
 
 // Match parts against the route table. Among same-length matches, the route

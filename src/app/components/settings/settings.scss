@@ -500,3 +500,122 @@ mat-divider {
     flex: 0 1 calc(33.333% - 0.35rem);
   }
 }
+
+// Generic list items shared by Categories + Storage Locations
+.add-btn {
+  min-height: 44px;
+  margin-bottom: 1rem;
+
+  mat-icon {
+    margin-right: 8px;
+  }
+}
+
+.item-list {
+  padding: 0;
+
+  .list-item {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    padding: 0.6rem 1rem;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.02);
+    }
+
+    .item-content {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex: 1;
+      min-width: 0;
+
+      .item-icon {
+        color: var(--primary-color);
+        flex-shrink: 0;
+      }
+
+      .item-emoji {
+        font-size: 1.4rem;
+        line-height: 1;
+        flex-shrink: 0;
+        width: 28px;
+        text-align: center;
+      }
+
+      .item-text {
+        flex: 1;
+        min-width: 0;
+
+        .item-name {
+          font-weight: 500;
+          color: rgba(0, 0, 0, 0.87);
+          display: flex;
+          align-items: center;
+        }
+      }
+    }
+
+    .item-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+  }
+}
+
+.header-icon {
+  vertical-align: middle;
+  color: var(--primary-color);
+  margin-right: 4px;
+}
+
+.signout-btn {
+  margin-top: 1rem;
+}
+
+.muted {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.small {
+  font-size: 0.85rem;
+}
+
+@media (min-width: 768px) and (orientation: landscape) {
+  .item-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .item-list .list-item {
+    flex: 0 1 calc(50% - 0.25rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  .item-list .list-item {
+    flex: 0 1 calc(33.333% - 0.35rem);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .item-list .list-item {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .item-list .list-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .item-list .list-item .item-content .item-text .item-name {
+    color: rgba(255, 255, 255, 0.87);
+  }
+}

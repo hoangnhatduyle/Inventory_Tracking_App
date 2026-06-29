@@ -1,137 +1,240 @@
-<div class="settings-page">
-  <h1>Settings</h1>
-
-  <p class="settings-note muted">
-    Admin actions (raw database browser, backups) live in the
-    <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer">Supabase dashboard</a>.
-  </p>
-
-  <mat-card class="settings-card">
-    <mat-card-header>
-      <mat-card-title>Account</mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
-      <p *ngIf="currentUser?.email as email">Signed in as <strong>{{ email }}</strong></p>
-      <button mat-stroked-button color="warn" (click)="signOut()">
-        <mat-icon>logout</mat-icon>
-        Sign out
-      </button>
-    </mat-card-content>
-  </mat-card>
-
-  <mat-card class="settings-card">
-    <mat-card-header>
-      <mat-card-title>Categories</mat-card-title>
-      <mat-card-subtitle>Organise items your way. Default categories cannot be edited.</mat-card-subtitle>
-    </mat-card-header>
-    <mat-card-content>
-      <mat-list *ngIf="categories.length; else noCategories">
-        <mat-list-item *ngFor="let cat of categories">
-          <span matListItemTitle>
-            {{ cat.name }}
-            <span *ngIf="cat.isSystem" class="badge-default">Default</span>
-          </span>
-          <button
-            *ngIf="!cat.isSystem"
-            mat-icon-button
-            matListItemMeta
-            (click)="openEditCategoryDialog(cat)"
-            matTooltip="Edit"
-          >
-            <mat-icon>edit</mat-icon>
-          </button>
-          <button
-            *ngIf="!cat.isSystem"
-            mat-icon-button
-            matListItemMeta
-            color="warn"
-            (click)="deleteCategory(cat)"
-            matTooltip="Delete"
-          >
-            <mat-icon>delete</mat-icon>
-          </button>
-        </mat-list-item>
-      </mat-list>
-      <ng-template #noCategories>
-        <p class="muted">No categories loaded.</p>
-      </ng-template>
-
-      <button mat-flat-button color="primary" (click)="openAddCategoryDialog()">
-        <mat-icon>add</mat-icon>
-        Add category
-      </button>
-    </mat-card-content>
-  </mat-card>
-
-  <mat-card class="settings-card">
-    <mat-card-header>
-      <mat-card-title>Storage locations</mat-card-title>
-      <mat-card-subtitle>Where you keep your food (Fridge, Pantry, Freezer&hellip;)</mat-card-subtitle>
-    </mat-card-header>
-    <mat-card-content>
-      <mat-list *ngIf="locations.length; else noLocations">
-        <mat-list-item *ngFor="let loc of locations">
-          <span matListItemTitle>{{ getLocationDisplay(loc) }}</span>
-          <button mat-icon-button matListItemMeta (click)="openEditLocationDialog(loc)" matTooltip="Edit">
-            <mat-icon>edit</mat-icon>
-          </button>
-          <button mat-icon-button matListItemMeta color="warn" (click)="deleteLocation(loc)" matTooltip="Delete">
-            <mat-icon>delete</mat-icon>
-          </button>
-        </mat-list-item>
-      </mat-list>
-      <ng-template #noLocations>
-        <p class="muted">No locations yet. Add one to organise your inventory.</p>
-      </ng-template>
-
-      <button mat-flat-button color="primary" (click)="openAddLocationDialog()">
-        <mat-icon>add</mat-icon>
-        Add location
-      </button>
-    </mat-card-content>
-  </mat-card>
-
-  <mat-card class="settings-card">
-    <mat-card-header>
-      <mat-card-title>Notifications</mat-card-title>
-      <mat-card-subtitle>Get a heads-up before items expire</mat-card-subtitle>
-    </mat-card-header>
-    <mat-card-content>
-      <div class="notification-actions">
-        <button mat-stroked-button (click)="enableNotifications()" [disabled]="!pushSupported">
-          <mat-icon>notifications_active</mat-icon>
-          Enable push notifications
-        </button>
-        <button mat-stroked-button (click)="sendTestNotification()" [disabled]="!pushSubscribed">
-          <mat-icon>send</mat-icon>
-          Send test notification
-        </button>
-        <button mat-button color="warn" (click)="disableNotifications()" [disabled]="!pushSubscribed">
-          Disable notifications
-        </button>
-      </div>
-      <p class="muted small" *ngIf="pushSubscribed">Push notifications are enabled for this browser.</p>
-      <p class="muted small" *ngIf="!pushSupported">
-        Push notifications are not supported in this browser.
-      </p>
-      <p class="muted small">
-        <strong>Platform notes:</strong> iOS requires iOS 16.4+ and installing the PWA to the home screen.
-        Fire Tablet users should use Chrome (not Silk) and add the app to the home screen.
-        Desktop Chrome and Firefox work out of the box.
-      </p>
-    </mat-card-content>
-  </mat-card>
-
-  <mat-card class="settings-card">
-    <mat-card-header>
-      <mat-card-title>Export</mat-card-title>
-      <mat-card-subtitle>Download your inventory as a CSV file</mat-card-subtitle>
-    </mat-card-header>
-    <mat-card-content>
-      <button mat-stroked-button (click)="exportInventory()">
-        <mat-icon>file_download</mat-icon>
-        Export inventory (CSV)
-      </button>
-    </mat-card-content>
-  </mat-card>
-</div>
+<div class="settings-container">
+  <div class="settings-header">
+    <h1><mat-icon class="header-icon">settings</mat-icon> Settings</h1>
+    <p class="subtitle">Manage your app preferences and data</p>
+  </div>
+
+  <!-- Account Section -->
+  <mat-expansion-panel class="settings-panel" [expanded]="true">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>person</mat-icon>
+        <span>Account</span>
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+
+    <div class="panel-content">
+      <div class="account-info" *ngIf="currentUser">
+        <div class="info-row" *ngIf="currentUser.email">
+          <mat-icon>email</mat-icon>
+          <div>
+            <strong>Email</strong>
+            <p>{{ currentUser.email }}</p>
+          </div>
+        </div>
+        <div class="info-row" *ngIf="currentUser.createdAt">
+          <mat-icon>event</mat-icon>
+          <div>
+            <strong>Member Since</strong>
+            <p>{{ currentUser.createdAt | date: 'mediumDate' }}</p>
+          </div>
+        </div>
+      </div>
+      <button mat-stroked-button color="warn" class="signout-btn" (click)="signOut()">
+        <mat-icon>logout</mat-icon>
+        Sign out
+      </button>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- Categories Section -->
+  <mat-expansion-panel class="settings-panel" [expanded]="true">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>category</mat-icon>
+        <span>Categories</span>
+      </mat-panel-title>
+      <mat-panel-description>
+        {{ categories.length }} categor{{ categories.length === 1 ? 'y' : 'ies' }}
+      </mat-panel-description>
+    </mat-expansion-panel-header>
+
+    <div class="panel-content">
+      <p class="helper-text">Organise items your way. Default categories cannot be edited.</p>
+
+      <button mat-raised-button color="primary" (click)="openAddCategoryDialog()" class="add-btn">
+        <mat-icon>add</mat-icon>
+        Add Category
+      </button>
+
+      <div *ngIf="categories.length > 0" class="item-list">
+        <div *ngFor="let cat of categories" class="list-item">
+          <div class="item-content">
+            <span class="item-emoji" aria-hidden="true">{{ cat.icon || '📦' }}</span>
+            <div class="item-text">
+              <div class="item-name">
+                {{ cat.name }}
+                <span *ngIf="cat.isSystem" class="badge-default">Default</span>
+              </div>
+            </div>
+          </div>
+          <div class="item-actions" *ngIf="!cat.isSystem">
+            <button mat-icon-button (click)="openEditCategoryDialog(cat)" matTooltip="Edit">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button color="warn" (click)="deleteCategory(cat)" matTooltip="Delete">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="categories.length === 0" class="empty-state">
+        <mat-icon>category</mat-icon>
+        <p>No categories loaded</p>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- Storage Locations Section -->
+  <mat-expansion-panel class="settings-panel" [expanded]="true">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>location_on</mat-icon>
+        <span>Storage Locations</span>
+      </mat-panel-title>
+      <mat-panel-description>
+        {{ locations.length }} location{{ locations.length === 1 ? '' : 's' }}
+      </mat-panel-description>
+    </mat-expansion-panel-header>
+
+    <div class="panel-content">
+      <p class="helper-text">Add and manage where you store your food items</p>
+
+      <button mat-raised-button color="primary" (click)="openAddLocationDialog()" class="add-btn">
+        <mat-icon>add</mat-icon>
+        Add Location
+      </button>
+
+      <div *ngIf="locations.length > 0" class="item-list">
+        <div *ngFor="let location of locations" class="list-item">
+          <div class="item-content">
+            <mat-icon class="item-icon">kitchen</mat-icon>
+            <div class="item-text">
+              <div class="item-name">{{ getLocationDisplay(location) }}</div>
+            </div>
+          </div>
+          <div class="item-actions">
+            <button mat-icon-button (click)="openEditLocationDialog(location)" matTooltip="Edit">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button color="warn" (click)="deleteLocation(location)" matTooltip="Delete">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="locations.length === 0" class="empty-state">
+        <mat-icon>location_off</mat-icon>
+        <p>No locations added yet</p>
+        <p class="empty-hint">Add your first storage location to start organizing your inventory</p>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- Notifications Section -->
+  <mat-expansion-panel class="settings-panel">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>notifications</mat-icon>
+        <span>Notifications</span>
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+
+    <div class="panel-content">
+      <p class="helper-text">Get a heads-up before your items expire</p>
+
+      <div class="notification-setting">
+        <div class="setting-info">
+          <mat-icon>notifications_active</mat-icon>
+          <div>
+            <strong>Enable Notifications</strong>
+            <p>Receive push alerts for expiring items</p>
+          </div>
+        </div>
+        <button
+          mat-raised-button
+          color="accent"
+          (click)="enableNotifications()"
+          [disabled]="!pushSupported || pushSubscribed"
+        >
+          <mat-icon>check_circle</mat-icon>
+          {{ pushSubscribed ? 'Enabled' : 'Enable' }}
+        </button>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="notification-setting">
+        <div class="setting-info">
+          <mat-icon>science</mat-icon>
+          <div>
+            <strong>Test Notification</strong>
+            <p>Send a test push to this device</p>
+          </div>
+        </div>
+        <button mat-raised-button color="primary" (click)="sendTestNotification()" [disabled]="!pushSubscribed">
+          <mat-icon>send</mat-icon>
+          Send Test
+        </button>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="notification-setting">
+        <div class="setting-info">
+          <mat-icon>notifications_off</mat-icon>
+          <div>
+            <strong>Disable Notifications</strong>
+            <p>Stop receiving push alerts on this device</p>
+          </div>
+        </div>
+        <button mat-raised-button (click)="disableNotifications()" [disabled]="!pushSubscribed">
+          <mat-icon>block</mat-icon>
+          Disable
+        </button>
+      </div>
+
+      <p class="muted small" *ngIf="!pushSupported">
+        Push notifications are not supported in this browser.
+      </p>
+      <p class="muted small">
+        <strong>Platform notes:</strong> iOS requires iOS 16.4+ and installing the PWA to the home
+        screen. Fire Tablet users should use Chrome (not Silk) and add the app to the home screen.
+        Desktop Chrome and Firefox work out of the box.
+      </p>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- Export Section -->
+  <mat-expansion-panel class="settings-panel">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>file_download</mat-icon>
+        <span>Export</span>
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+
+    <div class="panel-content">
+      <div class="notification-setting">
+        <div class="setting-info">
+          <mat-icon>table_view</mat-icon>
+          <div>
+            <strong>Export Inventory</strong>
+            <p>Download your inventory as a CSV file</p>
+          </div>
+        </div>
+        <button mat-raised-button (click)="exportInventory()">
+          <mat-icon>file_download</mat-icon>
+          Export CSV
+        </button>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
+  <p class="settings-note muted">
+    Admin actions (raw database browser, backups) live in the
+    <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer">Supabase dashboard</a>.
+  </p>
+</div>
