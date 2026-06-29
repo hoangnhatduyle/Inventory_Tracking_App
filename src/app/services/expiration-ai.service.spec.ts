@@ -1,105 +1,109 @@
 import { TestBed } from '@angular/core/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
+
 import { ExpirationAIService } from './expiration-ai.service';
-import { DatabaseService } from './database.service';
+import { ApiClient } from '../core/api-client.service';
+import { SupabaseAuthService } from '../core/supabase-auth.service';
+
+class MockSupabaseAuthService {
+  async getAccessToken(): Promise<string | null> {
+    return 'test-jwt';
+  }
+}
+
+class MockRouter {
+  navigate = jasmine.createSpy('navigate').and.resolveTo(true);
+}
+
+// ApiClient awaits getAccessToken() before sending the HTTP request, so we
+// need to flush a few microtasks before HttpTestingController.expectOne sees
+// the pending request.
+const flushMicrotasks = async () => {
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+};
+
+// ApiClient prefixes every request with environment.apiBaseUrl (e.g.
+// http://localhost:3000). Use suffix-matching so tests stay portable.
+const urlEndsWith = (suffix: string) => (req: { url: string }) => req.url.endsWith(suffix);
 
 describe('ExpirationAIService', () => {
   let service: ExpirationAIService;
-  let mockDb: jasmine.SpyObj<DatabaseService>;
+  let httpMock: HttpTestingController;
 
   beforeEach(() => {
-    mockDb = jasmine.createSpyObj('DatabaseService', ['query', 'run']);
-
     TestBed.configureTestingModule({
       providers: [
+        ApiClient,
         ExpirationAIService,
-        { provide: DatabaseService, useValue: mockDb }
-      ]
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: SupabaseAuthService, useClass: MockSupabaseAuthService },
+        { provide: Router, useClass: MockRouter },
+      ],
     });
-
     service = TestBed.inject(ExpirationAIService);
+    httpMock = TestBed.inject(HttpTestingController);
   });
 
-  describe('checkRateLimit', () => {
-    it('should only count rows where response_days IS NOT NULL', async () => {
-      mockDb.query.and.returnValue(Promise.resolve({
-        values: [{ count: 500, usage: 500, limit: 1000 }]
-      }));
+  afterEach(() => httpMock.verify());
 
-      const result = await service.checkRateLimit(1);
-
-      expect(result.allowed).toBe(true);
-      expect(mockDb.query).toHaveBeenCalled();
-      const queryCall = mockDb.query.calls.mostRecent();
-      const sql = queryCall.args[0];
-
-      // Verify the SQL contains the IS NOT NULL filter
-      expect(sql.toLowerCase()).toContain('response_days is not null');
+  it('POSTs the AISuggestionRequest object to /api/ai/expiration-suggest', async () => {
+    const pending = service.suggestExpiration({
+      itemName: 'Yogurt',
+      categoryName: 'Dairy',
+      storageLocation: 'Fridge',
+      purchaseDate: '2026-06-01',
     });
-
-    it('should return allowed=false when at monthly limit', async () => {
-      mockDb.query.and.returnValue(Promise.resolve({
-        values: [{ count: 1000, usage: 1000, limit: 1000 }]
-      }));
-
-      const result = await service.checkRateLimit(1);
-
-      expect(result.allowed).toBe(false);
-      expect(result.usage).toBe(1000);
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/ai/expiration-suggest'));
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({
+      itemName: 'Yogurt',
+      categoryName: 'Dairy',
+      storageLocation: 'Fridge',
+      purchaseDate: '2026-06-01',
     });
+    req.flush({ data: { days: 14, note: 'fridge dairy' } });
+    const out = await pending;
+    expect(out.days).toBe(14);
+    expect(out.note).toBe('fridge dairy');
   });
 
-  describe('suggestExpiration', () => {
-    it('should reject AI suggestions with days = 0', async () => {
-      // Mock fetch to return an invalid response
-      const mockFetch = jasmine.createSpy('fetch').and.returnValue(
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({
-            choices: [{
-              message: {
-                content: JSON.stringify({ days: 0, note: 'Invalid' })
-              }
-            }]
-          })
-        })
-      );
+  it('translates 429 quota errors into a user-friendly message', async () => {
+    const pending = service.suggestExpiration({ itemName: 'Milk' });
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/ai/expiration-suggest'));
+    req.flush(
+      { error: { code: 'QUOTA_EXCEEDED', message: 'no quota' } },
+      { status: 429, statusText: 'Too Many Requests' },
+    );
+    let caught: Error | null = null;
+    try {
+      await pending;
+    } catch (e) {
+      caught = e as Error;
+    }
+    expect(caught).toBeTruthy();
+    expect(caught!.message.toLowerCase()).toContain('limit');
+  });
 
-      spyOn(window, 'fetch').and.returnValue(mockFetch());
-
-      mockDb.run.and.returnValue(Promise.resolve({ changes: {} }));
-
-      try {
-        await service.suggestExpiration('Test Item', new Date(), 'Fridge', 1);
-      } catch (error: any) {
-        // Should throw or return error for days = 0
-        expect(error.message).toContain('Invalid');
-      }
-    });
-
-    it('should reject suggestions with days <= 0', async () => {
-      // Days should be positive; negative or zero is invalid
-      const mockFetch = jasmine.createSpy('fetch').and.returnValue(
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({
-            choices: [{
-              message: {
-                content: JSON.stringify({ days: -1, note: 'Invalid' })
-              }
-            }]
-          })
-        })
-      );
-
-      spyOn(window, 'fetch').and.returnValue(mockFetch());
-
-      mockDb.run.and.returnValue(Promise.resolve({ changes: {} }));
-
-      try {
-        await service.suggestExpiration('Test Item', new Date(), 'Pantry', 1);
-      } catch (error: any) {
-        expect(error.message).toContain('Invalid');
-      }
-    });
+  it('translates 500 errors into a generic unavailable message', async () => {
+    const pending = service.suggestExpiration({ itemName: 'Milk' });
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/ai/expiration-suggest'));
+    req.flush(
+      { error: { code: 'OPENAI_FAILED', message: 'boom' } },
+      { status: 500, statusText: 'Server Error' },
+    );
+    let caught: Error | null = null;
+    try {
+      await pending;
+    } catch (e) {
+      caught = e as Error;
+    }
+    expect(caught).toBeTruthy();
+    expect(caught!.message.toLowerCase()).toContain('unavailable');
   });
 });

@@ -43,7 +43,7 @@ import { InventoryItem } from '../../models/inventory.model';
   styleUrl: './dashboard.scss',
 })
 export class Dashboard implements OnInit {
-  userId: number | null = null;
+  userId: string | null = null;
   username = '';
   statistics: DashboardStatistics | null = null;
   recentItems: InventoryItem[] = [];
@@ -85,16 +85,30 @@ export class Dashboard implements OnInit {
     this.isLoading = true;
     try {
       // Load statistics
-      this.statistics = await this.statisticsService.getDashboardStatistics(this.userId);
+      this.statistics = await this.statisticsService.getDashboardStatistics();
+
+      // Load name lookups for category/location id -> name resolution in the
+      // "Recently Added" list (the dashboard payload itself only carries the
+      // raw aggregate counts by name).
+      const [categories, locations] = await Promise.all([
+        this.inventoryService.getCategories(),
+        this.inventoryService.getLocations(),
+      ]);
+      this.categoriesById = new Map(categories.filter((c) => c.id != null).map((c) => [c.id!, c.name]));
+      this.locationsById = new Map(
+        locations
+          .filter((l) => l.id != null)
+          .map((l) => [l.id!, l.subLocation ? `${l.name} - ${l.subLocation}` : l.name]),
+      );
 
       // Load recent items (last 5 added)
-      const allItems = await this.inventoryService.getItems(this.userId);
+      const allItems = await this.inventoryService.getItems();
       this.recentItems = allItems
         .sort((a, b) => (b.id || 0) - (a.id || 0))
         .slice(0, 5);
 
       // Load recipe suggestions
-      this.recipes = await this.statisticsService.getRecipeSuggestions(this.userId);
+      this.recipes = await this.statisticsService.getRecipeSuggestions();
 
       // Load low stock items in background
       this.loadLowStockItems();
@@ -110,7 +124,7 @@ export class Dashboard implements OnInit {
 
     this.isLoadingLowStock = true;
     try {
-      const items = await this.inventoryService.getLowStockItems(this.userId);
+      const items = await this.inventoryService.getLowStockItems();
 
       // Enrich with consumption rate and predicted run-out date
       this.lowStockItems = await Promise.all(
@@ -147,12 +161,17 @@ export class Dashboard implements OnInit {
     return 'Good Evening';
   }
 
+  // Categories returned from /api/statistics/dashboard are keyed by name, not
+  // id, so look up the in-memory inventory categories instead.
+  categoriesById: Map<number, string> = new Map();
+  locationsById: Map<number, string> = new Map();
+
   getCategoryName(categoryId: number): string {
-    return this.statistics?.categoryBreakdown.find((c: any) => c.categoryId === categoryId)?.categoryName || 'Unknown';
+    return this.categoriesById.get(categoryId) ?? 'Unknown';
   }
 
   getLocationName(locationId: number): string {
-    return this.statistics?.locationBreakdown.find((l: any) => l.locationId === locationId)?.locationName || 'Unknown';
+    return this.locationsById.get(locationId) ?? 'Unknown';
   }
 
   getDaysUntilExpiration(expirationDate: string | Date): number {
@@ -198,14 +217,14 @@ export class Dashboard implements OnInit {
   }
 
   getTotalWastedValue(): string {
-    if (!this.statistics || !this.statistics.wastedItems) return '0.00';
-    const total = this.statistics.wastedItems.reduce((sum: number, item: any) => sum + (item.totalValue || 0), 0);
+    if (!this.statistics) return '0.00';
+    const total = this.statistics.wastedItems.reduce((sum, item) => sum + (item.totalValue || 0), 0);
     return total.toFixed(2);
   }
 
   getTotalWastedCount(): number {
-    if (!this.statistics || !this.statistics.wastedItems) return 0;
-    return this.statistics.wastedItems.reduce((sum: number, item: any) => sum + (item.timesWasted || 0), 0);
+    if (!this.statistics) return 0;
+    return this.statistics.wastedItems.reduce((sum, item) => sum + (item.timesWasted || 0), 0);
   }
 
   navigateToWasteTracking() {
@@ -223,8 +242,8 @@ export class Dashboard implements OnInit {
     if (!this.userId) return;
 
     try {
-      const allItems = await this.inventoryService.getItems(this.userId);
-      const locations = await this.inventoryService.getLocations(this.userId);
+      const allItems = await this.inventoryService.getItems();
+      const locations = await this.inventoryService.getLocations();
 
       // Initialize groups
       this.itemsByLocation = {};

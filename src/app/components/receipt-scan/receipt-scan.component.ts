@@ -2,7 +2,9 @@ import { Component, OnInit, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+// Capacitor was dropped in the web migration. Image capture now uses a
+// hidden <input type="file"> in either "camera" (capture=environment) or
+// "gallery" (no capture attribute) mode.
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -1285,9 +1287,9 @@ export class ReceiptScanComponent implements OnInit {
 
   // Table editing state
   editingCell: { rowIndex: number; field: keyof ReviewItem } | null = null;
-  editingValue: any = null;
+  editingValue: string | number | boolean | Date | null = null;
 
-  private userId: number | null = null;
+  private userId: string | null = null;
   private defaultLocationId: number | null = null;
 
   // Wizard convenience getters
@@ -1320,7 +1322,7 @@ export class ReceiptScanComponent implements OnInit {
     this.userId = await this.authService.getCurrentUserId();
     this.categories = await this.inventoryService.getCategories();
     if (this.userId) {
-      this.locations = await this.inventoryService.getLocations(this.userId);
+      this.locations = await this.inventoryService.getLocations();
       this.defaultLocationId = this.locations.length > 0 ? (this.locations[0].id ?? null) : null;
     }
   }
@@ -1328,30 +1330,51 @@ export class ReceiptScanComponent implements OnInit {
 
   async capturePhoto(source: 'camera' | 'gallery') {
     try {
-      const photo = await Camera.getPhoto({
-        quality: 60,       // lower quality reduces payload size (receipts don't need high fidelity)
-        width: 1600,       // cap width — enough for OpenAI to read text, keeps base64 under ~1 MB
-        allowEditing: false,
-        resultType: CameraResultType.Base64,
-        source: source === 'camera' ? CameraSource.Camera : CameraSource.Photos
-      });
-
-      if (!photo.base64String) {
-        this.showMessage('Could not read photo. Please try again.');
+      const file = await this.pickImageFile(source);
+      if (!file) return;
+      // Web flow: upload to Supabase Storage first, then hand the AI only the
+      // resulting storage path. The /api/ai/receipt-scan endpoint fetches the
+      // image via service-role credentials - it cannot accept base64 directly.
+      this.step = 'analyzing';
+      let storagePath: string | null = null;
+      try {
+        storagePath = await this.imageService.uploadFile(file, 'receipts');
+      } catch (uploadErr: unknown) {
+        console.error('[ReceiptScan] upload error:', uploadErr);
+        const msg = uploadErr instanceof Error ? uploadErr.message : '';
+        this.showMessage(msg || 'Could not upload receipt image.');
+        this.step = 'capture';
         return;
       }
-
-      // Detect MIME type from photo format
-      const format = photo.format || 'jpeg'; // Default to jpeg if format not available
-      const mimeType = this.imageService.getMimeTypeFromPath(`photo.${format}`);
-      const base64 = `data:${mimeType};base64,${photo.base64String}`;
-      this.step = 'analyzing';
-      await this.analyzeReceipt(base64);
-    } catch (err: any) {
-      if (err?.message?.toLowerCase().includes('cancel')) return;
+      if (!storagePath) {
+        this.showMessage('Could not upload receipt image. Please try again.');
+        this.step = 'capture';
+        return;
+      }
+      await this.analyzeReceipt(storagePath);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message.toLowerCase() : '';
+      if (msg.includes('cancel')) return;
       console.error('[ReceiptScan] capturePhoto error:', err);
       this.showMessage('Could not open camera. Please try again.');
     }
+  }
+
+  private pickImageFile(source: 'camera' | 'gallery'): Promise<File | null> {
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/jpeg,image/png,image/webp';
+      if (source === 'camera') {
+        input.setAttribute('capture', 'environment');
+      }
+      input.onchange = () => {
+        const file = input.files && input.files[0] ? input.files[0] : null;
+        resolve(file);
+      };
+      input.oncancel = () => resolve(null);
+      input.click();
+    });
   }
 
   getLocationName(locationId: number): string | undefined {
@@ -1368,7 +1391,7 @@ export class ReceiptScanComponent implements OnInit {
     return parseLocalDate(dateStr as string);
   }
 
-  private async analyzeReceipt(base64Image: string) {
+  private async analyzeReceipt(imagePath: string) {
     if (!this.userId) {
       this.showMessage('Not logged in.');
       this.step = 'capture';
@@ -1376,18 +1399,15 @@ export class ReceiptScanComponent implements OnInit {
     }
 
     try {
-      const items = await this.receiptScanService.parseReceipt(base64Image, this.userId);
-      const today = toLocalDateString(new Date());
+      const items = await this.receiptScanService.parseReceipt(imagePath);
 
-      // Compute purchase date from receiptDate (always a Date object now)
-      const purchaseDateLocal = this.receiptDate instanceof Date
-        ? this.receiptDate
-        : parseLocalDate(this.receiptDate as any) || new Date();
+      const purchaseDateLocal = this.receiptDate instanceof Date ? this.receiptDate : new Date();
       const purchaseDateStr = toLocalDateString(purchaseDateLocal);
 
-      this.reviewItems = items.map(item => {
-        const categoryId = this.resolveCategoryId(item.categoryHint);
-        const expiryDays = this.receiptScanService.getDefaultExpiryDays(item.categoryHint);
+      this.reviewItems = items.map((item): ReviewItem => {
+        const categoryHint = item.categoryHint ?? '';
+        const categoryId = this.resolveCategoryId(categoryHint);
+        const expiryDays = this.receiptScanService.getDefaultExpiryDays(categoryHint);
         // Use purchaseDateLocal as base so expiry is relative to the receipt date
         const expiryDate = new Date(purchaseDateLocal);
         expiryDate.setDate(expiryDate.getDate() + expiryDays);
@@ -1395,10 +1415,10 @@ export class ReceiptScanComponent implements OnInit {
         return {
           included: true,
           name: item.name,
-          quantity: item.quantity,
+          quantity: item.quantity ?? 1,
           unit: 'piece',
-          totalPrice: item.totalPrice,
-          categoryHint: item.categoryHint,
+          totalPrice: item.totalPrice ?? null,
+          categoryHint,
           categoryId,
           // New fields — auto-filled
           locationId: this.defaultLocationId ?? 1,
@@ -1417,9 +1437,10 @@ export class ReceiptScanComponent implements OnInit {
       this.reviewMode = 'wizard';
       this.expandedItemIndex = null;
       this.step = 'mode-select';
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[ReceiptScan] analyzeReceipt error:', err instanceof Error ? err.message : String(err));
-      this.showMessage(err?.message || 'Failed to parse receipt. Please try again.');
+      const msg = err instanceof Error ? err.message : '';
+      this.showMessage(msg || 'Failed to parse receipt. Please try again.');
       this.step = 'capture';
     }
   }
@@ -1461,11 +1482,11 @@ export class ReceiptScanComponent implements OnInit {
   }
 
   // Mode selection
-  selectMode(mode: 'wizard' | 'table' | any) {
+  selectMode(mode: 'wizard' | 'table' | MatButtonToggleChange) {
     // Flush any pending table cell edit before switching views
     this.confirmEdit();
     // Handle both direct calls and MatButtonToggleChange events
-    const selectedMode = typeof mode === 'string' ? mode : mode.value;
+    const selectedMode = typeof mode === 'string' ? mode : (mode.value as 'wizard' | 'table');
     this.reviewMode = selectedMode;
     this.expandedItemIndex = null;
     this.step = 'item-wizard';
@@ -1512,7 +1533,7 @@ export class ReceiptScanComponent implements OnInit {
     if (!this.editingCell) return;
     const item = this.reviewItems[this.editingCell.rowIndex];
     if (item) {
-      (item as any)[this.editingCell.field] = this.editingValue;
+      (item as unknown as Record<string, unknown>)[this.editingCell.field] = this.editingValue;
 
       // If editing expireAmount or expireUnit, recalculate expiration date
       if (this.editingCell.field === 'expireAmount' || this.editingCell.field === 'expireUnit') {
@@ -1637,12 +1658,11 @@ export class ReceiptScanComponent implements OnInit {
       const location = this.locations.find(l => l.id === item.locationId);
       const purchaseDate = new Date(item.purchaseDate);
 
-      const result = await this.expirationAIService.suggestExpiration(
-        item.name,
-        purchaseDate,
-        location?.name || null,
-        this.userId
-      );
+      const result = await this.expirationAIService.suggestExpiration({
+        itemName: item.name,
+        storageLocation: location?.name ?? undefined,
+        purchaseDate: toLocalDateString(purchaseDate),
+      });
 
       if (!result.days || result.days <= 0) {
         this.showMessage('AI could not suggest an expiration date. Please set it manually.');
@@ -1665,16 +1685,17 @@ export class ReceiptScanComponent implements OnInit {
         } as AISuggestionDialogData
       });
 
-      dialogRef.afterClosed().subscribe((dialogResult: any) => {
+      dialogRef.afterClosed().subscribe((dialogResult: { accepted?: boolean } | undefined) => {
         if (dialogResult?.accepted) {
           item.expireAmount = result.days;
           item.expireUnit = 'days';
           item.expirationDate = toLocalDateString(expiryDate);
         }
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[ReceiptScan] AI suggestion error:', error);
-      this.showMessage(error?.message || 'AI suggestion failed. Please try again.');
+      const msg = error instanceof Error ? error.message : '';
+      this.showMessage(msg || 'AI suggestion failed. Please try again.');
     } finally {
       this.isLoadingAI = false;
     }

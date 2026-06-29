@@ -129,13 +129,13 @@ export class LocationSelectorComponent implements OnInit {
 
   constructor(
     private bottomSheetRef: MatBottomSheetRef<LocationSelectorComponent>,
-    @Inject(MAT_BOTTOM_SHEET_DATA) public data: any,
+    @Inject(MAT_BOTTOM_SHEET_DATA) public data: { userId?: string | number | null },
     private inventoryService: InventoryService,
     private router: Router
   ) {}
 
   async ngOnInit() {
-    this.locations = await this.inventoryService.getLocations(this.data.userId);
+    this.locations = await this.inventoryService.getLocations();
   }
 
   selectLocation(location: Location) {

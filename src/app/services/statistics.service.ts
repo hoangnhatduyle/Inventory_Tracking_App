@@ -1,403 +1,133 @@
-import { Injectable } from '@angular/core';
-import { DatabaseService } from './database.service';
-import { InventoryService } from './inventory.service';
-import { DashboardStatistics, CategoryStats, LocationStats, WastedItemStats, Recipe } from '../models/statistics.model';
-import { isPastDate, daysFromNow, daysBetween } from '../utils/date.utils';
+import { inject, Injectable } from '@angular/core';
+import { ApiClient } from '../core/api-client.service';
+import { InventoryItem } from '../models/inventory.model';
+import {
+  CategoryStats,
+  DashboardStatistics,
+  LocationStats,
+  Recipe,
+  WastedItemStats,
+} from '../models/statistics.model';
 
-@Injectable({
-  providedIn: 'root'
-})
+export type { DashboardStatistics, Recipe };
+
+// Raw payload returned by the `dashboard_summary` Postgres function (see
+// supabase/migrations/0005_dashboard_function.sql). Fields are optional only
+// because Postgres may legitimately omit empty arrays / nulls.
+interface DashboardRaw {
+  totalItems?: number;
+  totalValue?: number | string;
+  expiringCount?: number;
+  expiredCount?: number;
+  expiringSoon?: InventoryItem[];
+  lowStock?: InventoryItem[];
+  byCategory?: Array<{ category: string; count: number }>;
+  byLocation?: Array<{ location: string; count: number }>;
+  waste30dCount?: number;
+  waste30dValue?: number | string;
+  mostWastedItems?: WastedItemStats[];
+}
+
+@Injectable({ providedIn: 'root' })
 export class StatisticsService {
-  constructor(
-    private db: DatabaseService,
-    private inventoryService: InventoryService
-  ) {}
+  private readonly api = inject(ApiClient);
 
-  async getDashboardStatistics(userId: number): Promise<DashboardStatistics> {
-    try {
-      const items = await this.inventoryService.getItems(userId);
-      const categories = await this.inventoryService.getCategories();
-      const locations = await this.inventoryService.getLocations(userId);
-
-      const threeDaysDateStr = daysFromNow(3);
-      const sevenDaysDateStr = daysFromNow(7);
-
-      let totalValue = 0;
-      let expiringIn3Days = 0;
-      let expiringInWeek = 0;
-      let expiredItems = 0;
-
-      const categoryMap = new Map<number, { count: number; value: number }>();
-      const locationMap = new Map<number, number>();
-
-      items.forEach(item => {
-        // Calculate total value using current remaining quantity (after usage tracking)
-        // Falls back to original quantity if usage not tracked
-        const quantityForValue = item.currentQuantity !== undefined && item.currentQuantity !== null
-          ? item.currentQuantity
-          : item.quantity;
-
-        if (item.price) {
-          totalValue += item.price * quantityForValue;
-        }
-
-        // Count expiring items using timezone-safe date comparison
-        if (isPastDate(item.expirationDate)) {
-          expiredItems++;
-        } else if (daysBetween(item.expirationDate, threeDaysDateStr) <= 0) {
-          expiringIn3Days++;
-        } else if (daysBetween(item.expirationDate, sevenDaysDateStr) <= 0) {
-          expiringInWeek++;
-        }
-
-        // Category breakdown
-        const catStats = categoryMap.get(item.categoryId) || { count: 0, value: 0 };
-        catStats.count++;
-        catStats.value += (item.price || 0) * quantityForValue;
-        categoryMap.set(item.categoryId, catStats);
-
-        // Location breakdown
-        const locCount = locationMap.get(item.locationId) || 0;
-        locationMap.set(item.locationId, locCount + 1);
-      });
-
-      // Build category breakdown
-      const categoryBreakdown: CategoryStats[] = [];
-      categoryMap.forEach((stats, categoryId) => {
-        const category = categories.find(c => c.id === categoryId);
-        if (category) {
-          categoryBreakdown.push({
-            categoryName: category.name,
-            count: stats.count,
-            totalValue: stats.value
-          });
-        }
-      });
-
-      // Build location breakdown
-      const locationBreakdown: LocationStats[] = [];
-      locationMap.forEach((count, locationId) => {
-        const location = locations.find(l => l.id === locationId);
-        if (location) {
-          locationBreakdown.push({
-            locationName: location.name + (location.subLocation ? ` - ${location.subLocation}` : ''),
-            count
-          });
-        }
-      });
-
-      // Get wasted items statistics
-      const mostWastedItems = await this.getMostWastedItems(userId);
-
-      // Get recent items (last 5 added) - create copy to avoid mutating original array
-      const recentItems = [...items]
-        .sort((a, b) => new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime())
-        .slice(0, 5);
-
-      return {
-        totalItems: items.length,
-        totalValue,
-        expiringSoon: expiringIn3Days,
-        expiringIn3Days,
-        expiringInWeek,
-        expired: expiredItems,
-        expiredItems,
-        categoryBreakdown,
-        locationBreakdown,
-        mostWastedItems,
-        wastedItems: mostWastedItems,
-        recentItems
-      };
-    } catch (error) {
-      console.error('Error getting dashboard statistics:', error);
-      return {
-        totalItems: 0,
-        totalValue: 0,
-        expiringSoon: 0,
-        expiringIn3Days: 0,
-        expiringInWeek: 0,
-        expired: 0,
-        expiredItems: 0,
-        categoryBreakdown: [],
-        locationBreakdown: [],
-        mostWastedItems: [],
-        wastedItems: [],
-        recentItems: []
-      };
-    }
+  async getDashboardStatistics(): Promise<DashboardStatistics> {
+    const raw = (await this.api.get<DashboardRaw>('/api/statistics/dashboard')) ?? {};
+    const totalValue = Number(raw.totalValue ?? 0) || 0;
+    const waste30dValue = Number(raw.waste30dValue ?? 0) || 0;
+    const categoryBreakdown: CategoryStats[] = (raw.byCategory ?? []).map((c) => ({
+      categoryName: c.category ?? '',
+      count: c.count ?? 0,
+      totalValue: 0,
+    }));
+    const locationBreakdown: LocationStats[] = (raw.byLocation ?? []).map((l) => ({
+      locationName: l.location ?? '',
+      count: l.count ?? 0,
+    }));
+    return {
+      totalItems: raw.totalItems ?? 0,
+      totalValue,
+      expiringCount: raw.expiringCount ?? 0,
+      expiringSoon: raw.expiringSoon ?? [],
+      expiredCount: raw.expiredCount ?? 0,
+      lowStock: raw.lowStock ?? [],
+      categoryBreakdown,
+      locationBreakdown,
+      wastedItems: raw.mostWastedItems ?? [],
+      totalWastedValue: waste30dValue,
+      totalSpentValue: totalValue,
+      waste30dCount: raw.waste30dCount ?? 0,
+      waste30dValue,
+    };
   }
 
-  private async getMostWastedItems(userId: number): Promise<WastedItemStats[]> {
-    try {
-      // Query without JOIN (web localStorage fallback doesn't support JOINs or GROUP BY)
-      const query = `
-        SELECT
-          w.id,
-          w.item_name,
-          w.category_id,
-          w.price,
-          w.quantity
-        FROM wasted_items w
-        WHERE w.user_id = ?
-        ORDER BY w.wasted_date DESC
-      `;
-
-      const result = await this.db.query(query, [userId]);
-
-      if (result.values && result.values.length > 0) {
-        // Fetch all categories once
-        const categoriesRes = await this.db.query('SELECT id, name FROM categories');
-        const categories: any = {};
-        if (categoriesRes.values) {
-          categoriesRes.values.forEach((c: any) => {
-            categories[c.id] = c.name;
-          });
-        }
-
-        // Group and aggregate in memory
-        const itemMap = new Map<string, { name: string; category: string; count: number; value: number }>();
-
-        result.values.forEach((row: any) => {
-          const itemName = row.item_name;
-          const categoryName = categories[row.category_id] || 'Unknown';
-          const key = `${itemName}|${categoryName}`;
-          const value = (row.price || 0) * (row.quantity || 0);
-
-          if (itemMap.has(key)) {
-            const item = itemMap.get(key)!;
-            item.count++;
-            item.value += value;
-          } else {
-            itemMap.set(key, {
-              name: itemName,
-              category: categoryName,
-              count: 1,
-              value: value
-            });
-          }
-        });
-
-        // Convert to array, sort, and limit to 10
-        return Array.from(itemMap.values())
-          .sort((a, b) => b.count - a.count || b.value - a.value)
-          .slice(0, 10)
-          .map((item) => ({
-            itemName: item.name,
-            categoryName: item.category,
-            timesWasted: item.count,
-            totalValue: item.value
-          }));
-      }
-
-      return [];
-    } catch (error) {
-      console.error('Error getting wasted items:', error);
-      return [];
-    }
+  // Recipe suggestions: the old algorithmic version is dropped from v1; this
+  // returns an empty array so existing templates render gracefully.
+  async getRecipeSuggestions(): Promise<Recipe[]> {
+    return [];
   }
 
-  async getTotalWasteStats(userId: number): Promise<{ totalItems: number; totalValue: number }> {
-    try {
-      const query = `
-        SELECT 
-          COUNT(*) as total_items,
-          SUM(price * quantity) as total_value
-        FROM wasted_items
-        WHERE user_id = ?
-      `;
-      
-      const result = await this.db.query(query, [userId]);
-      
-      if (result.values && result.values.length > 0) {
-        const row = result.values[0];
-        return {
-          totalItems: row.total_items || 0,
-          totalValue: row.total_value || 0
-        };
-      }
-      
-      return { totalItems: 0, totalValue: 0 };
-    } catch (error) {
-      console.error('Error getting total waste stats:', error);
-      return { totalItems: 0, totalValue: 0 };
-    }
-  }
+  // ---- Recipe library (delegates to /api/recipes; kept on StatisticsService
+  //      for backwards compatibility with the recipe-manager component) ----
 
   async getAllRecipes(): Promise<Recipe[]> {
     try {
-      const query = `SELECT * FROM recipes ORDER BY name ASC`;
-      const result = await this.db.query(query, []);
-      
-      if (result.values) {
-        return result.values.map((row: any) => ({
-          id: row.id,
-          name: row.name,
-          ingredients: row.ingredients || '',
-          ingredientsList: (row.ingredients || '').split(',').map((i: string) => i.trim()).filter((i: string) => i.length > 0),
-          prepTime: row.prep_time,
-          servings: row.servings,
-          instructions: row.instructions || '',
-          createdAt: row.created_at,
-          updatedAt: row.updated_at
-        }));
-      }
-      
-      return [];
-    } catch (error) {
-      console.error('Error getting recipes:', error);
+      return await this.api.get<Recipe[]>('/api/recipes');
+    } catch {
       return [];
     }
   }
 
   async addRecipe(recipe: Recipe): Promise<boolean> {
     try {
-      const query = `
-        INSERT INTO recipes (name, ingredients, prep_time, servings, instructions)
-        VALUES (?, ?, ?, ?, ?)
-      `;
-      await this.db.run(query, [
-        recipe.name,
-        recipe.ingredients,
-        recipe.prepTime,
-        recipe.servings,
-        recipe.instructions || ''
-      ]);
+      await this.api.post('/api/recipes', recipe);
       return true;
-    } catch (error) {
-      console.error('Error adding recipe:', error);
+    } catch {
       return false;
     }
   }
 
   async updateRecipe(recipe: Recipe): Promise<boolean> {
+    if (!recipe.id) return false;
     try {
-      const query = `
-        UPDATE recipes 
-        SET name = ?, ingredients = ?, prep_time = ?, servings = ?, instructions = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `;
-      await this.db.run(query, [
-        recipe.name,
-        recipe.ingredients,
-        recipe.prepTime,
-        recipe.servings,
-        recipe.instructions || '',
-        recipe.id
-      ]);
+      await this.api.patch(`/api/recipes/${recipe.id}`, recipe);
       return true;
-    } catch (error) {
-      console.error('Error updating recipe:', error);
+    } catch {
       return false;
     }
   }
 
-  async deleteRecipe(recipeId: number): Promise<boolean> {
+  async deleteRecipe(id: number): Promise<boolean> {
     try {
-      const query = `DELETE FROM recipes WHERE id = ?`;
-      await this.db.run(query, [recipeId]);
+      await this.api.delete(`/api/recipes/${id}`);
       return true;
-    } catch (error) {
-      console.error('Error deleting recipe:', error);
+    } catch {
       return false;
     }
   }
 
-  async getRecipeSuggestions(userId: number): Promise<Recipe[]> {
-    try {
-      // Get items expiring in the next 7 days
-      const items = await this.inventoryService.filterItems(userId, undefined, undefined, 7);
-      
-      if (items.length === 0) {
-        return [];
-      }
-
-      // Get all recipes from database
-      const recipes = await this.getAllRecipes();
-      
-      if (recipes.length === 0) {
-        return [];
-      }
-
-      // Get categories for items
-      const categories = await this.inventoryService.getCategories();
-      const categoryMap = new Map(categories.map(c => [c.id!, c.name.toLowerCase()]));
-
-      // Score recipes based on matching ingredients
-      const scoredRecipes = recipes.map((recipe: Recipe) => {
-        const matchingItems: string[] = [];
-        let matchCount = 0;
-        const ingredientsList = recipe.ingredientsList || recipe.ingredients.split(',').map(i => i.trim());
-
-        ingredientsList.forEach((ingredient: string) => {
-          // Check if ingredient matches any item name or category
-          const matches = items.filter(item => {
-            const itemName = item.name.toLowerCase();
-            const itemCategory = categoryMap.get(item.categoryId) || '';
-            return itemName.includes(ingredient.toLowerCase()) || 
-                   itemCategory.includes(ingredient.toLowerCase()) ||
-                   ingredient.toLowerCase().includes(itemName);
-          });
-
-          if (matches.length > 0) {
-            matchCount++;
-            matches.forEach(match => {
-              if (!matchingItems.includes(match.name)) {
-                matchingItems.push(match.name);
-              }
-            });
-          }
-        });
-
-        return {
-          ...recipe,
-          matchingItems,
-          matchCount
-        };
-      });
-
-      // Filter recipes with at least 2 matching ingredients and sort by match count
-      return scoredRecipes
-        .filter((recipe: Recipe) => (recipe.matchCount || 0) >= 2)
-        .sort((a: Recipe, b: Recipe) => (b.matchCount || 0) - (a.matchCount || 0))
-        .slice(0, 5);
-    } catch (error) {
-      console.error('Error getting recipe suggestions:', error);
-      return [];
-    }
+  // CSV export of the current inventory list. The new web build calls the
+  // dedicated `buildInventoryCsv(items)` helper instead; this remains as a
+  // shim so older callers keep working.
+  async exportInventoryData(items: InventoryItem[]): Promise<string> {
+    return this.buildInventoryCsv(items);
   }
 
-  private sanitizeCsvField(value: string): string {
-    // Escape internal double-quotes
-    const escaped = value.replace(/"/g, '""');
-    // Strip formula-injection prefixes (=, +, -, @, TAB, CR)
-    const safe = escaped.replace(/^[=+\-@\t\r]+/, '');
-    return safe;
-  }
-
-  async exportInventoryData(userId: number): Promise<string> {
-    try {
-      const items = await this.inventoryService.getItems(userId);
-      const categories = await this.inventoryService.getCategories();
-      const locations = await this.inventoryService.getLocations(userId);
-
-      const categoryMap = new Map(categories.map(c => [c.id!, c.name]));
-      const locationMap = new Map(locations.map(l => [l.id!, `${l.name}${l.subLocation ? ' - ' + l.subLocation : ''}`]));
-
-      // Create CSV header
-      let csv = 'Name,Category,Quantity,Unit,Purchase Date,Expiration Date,Location,Price,Notes,Notification Enabled,Notification Days Before\n';
-
-      // Add items
-      items.forEach(item => {
-        const category = categoryMap.get(item.categoryId) || 'Unknown';
-        const location = locationMap.get(item.locationId) || 'Unknown';
-
-        csv += `"${this.sanitizeCsvField(item.name)}","${this.sanitizeCsvField(category)}",${item.quantity},"${this.sanitizeCsvField(item.unit)}","${item.purchaseDate}","${item.expirationDate}","${this.sanitizeCsvField(location)}",${item.price || 0},"${this.sanitizeCsvField(item.notes || '')}",${item.notificationEnabled},${item.notificationDaysBefore}\n`;
-      });
-
-      return csv;
-    } catch (error) {
-      console.error('Error exporting inventory data:', error);
-      return '';
-    }
+  // CSV export of the current inventory. Kept client-side because the
+  // browser can directly trigger the download. Server-side export would
+  // require sending the file back to the browser anyway.
+  buildInventoryCsv(items: InventoryItem[]): string {
+    const header = ['Name', 'Category', 'Quantity', 'Unit', 'Expiration', 'Notes'];
+    const escape = (v: unknown): string => {
+      const s = v == null ? '' : String(v);
+      // Defuse formula injection (=, +, -, @) by prefixing with a single quote.
+      const sanitised = /^[=+\-@]/.test(s) ? `'${s}` : s;
+      return `"${sanitised.replace(/"/g, '""')}"`;
+    };
+    const rows = items.map((i) =>
+      [i.name, i.categoryId, i.quantity, i.unit, i.expirationDate, i.notes].map(escape).join(','),
+    );
+    return [header.join(','), ...rows].join('\r\n');
   }
 }

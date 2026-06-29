@@ -139,28 +139,28 @@
     </mat-card>
 
     <!-- Expiring Soon -->
-    <mat-card class="stat-card warning-card hover-lift" [class.clickable]="statistics.expiringSoon > 0"
-      (click)="statistics.expiringSoon > 0 && navigateToInventory()">
+    <mat-card class="stat-card warning-card hover-lift" [class.clickable]="statistics.expiringCount > 0"
+      (click)="statistics.expiringCount > 0 && navigateToInventory()">
       <mat-card-content>
         <div class="stat-icon">
           <mat-icon>schedule</mat-icon>
         </div>
         <div class="stat-info">
-          <h2>{{ statistics.expiringSoon }}</h2>
+          <h2>{{ statistics.expiringCount }}</h2>
           <p>Expiring Soon</p>
         </div>
       </mat-card-content>
     </mat-card>
 
     <!-- Expired -->
-    <mat-card class="stat-card danger-card hover-lift" [class.clickable]="statistics.expired > 0"
-      (click)="statistics.expired > 0 && navigateToInventory()">
+    <mat-card class="stat-card danger-card hover-lift" [class.clickable]="statistics.expiredCount > 0"
+      (click)="statistics.expiredCount > 0 && navigateToInventory()">
       <mat-card-content>
         <div class="stat-icon">
           <mat-icon>error</mat-icon>
         </div>
         <div class="stat-info">
-          <h2>{{ statistics.expired }}</h2>
+          <h2>{{ statistics.expiredCount }}</h2>
           <p>Expired</p>
         </div>
       </mat-card-content>
@@ -373,7 +373,7 @@
     </mat-card>
 
     <!-- Waste Tracking -->
-    @if (statistics.wastedItems && statistics.wastedItems.length > 0) {
+    @if (statistics.wastedItems.length > 0) {
     <mat-card class="waste-card clickable" (click)="navigateToWasteTracking()">
       <mat-card-header>
         <mat-card-title>

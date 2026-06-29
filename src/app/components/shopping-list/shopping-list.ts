@@ -37,7 +37,7 @@ import { ShoppingListItem, Category } from '../../models/inventory.model';
   styleUrl: './shopping-list.scss',
 })
 export class ShoppingList implements OnInit {
-  userId: number | null = null;
+  userId: string | null = null;
   items: ShoppingListItem[] = [];
   categories: Category[] = [];
   
@@ -67,7 +67,7 @@ export class ShoppingList implements OnInit {
     if (!this.userId) return;
 
     try {
-      this.items = await this.shoppingListService.getItems(this.userId);
+      this.items = await this.shoppingListService.getItems();
       this.categories = await this.inventoryService.getCategories();
     } catch (error) {
       console.error('Error loading shopping list:', error);
@@ -185,7 +185,7 @@ export class ShoppingList implements OnInit {
     if (!confirmed) return;
 
     try {
-      await this.shoppingListService.clearPurchased(this.userId!);
+      await this.shoppingListService.clearPurchased();
       await this.loadData();
       this.snackBar.open(`${purchasedCount} item(s) cleared`, 'Close', { duration: 3000 });
     } catch (error) {
@@ -198,7 +198,7 @@ export class ShoppingList implements OnInit {
     if (!this.userId) return;
 
     try {
-      await this.shoppingListService.exportToText(this.userId);
+      await this.shoppingListService.exportToText();
       this.snackBar.open('Shopping list exported!', 'Close', { duration: 3000 });
     } catch (error) {
       console.error('Error exporting list:', error);

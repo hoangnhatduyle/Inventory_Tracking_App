@@ -59,7 +59,7 @@ export class LocationDialogComponent {
 
   constructor(
     public dialogRef: MatDialogRef<LocationDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { location: Location | null; userId: number },
+    @Inject(MAT_DIALOG_DATA) public data: { location: Location | null; userId: string },
     private inventoryService: InventoryService,
     private snackBar: MatSnackBar
   ) {

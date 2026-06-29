@@ -1,135 +1,88 @@
-import { Injectable } from '@angular/core';
-import { DatabaseService } from './database.service';
+import { inject, Injectable } from '@angular/core';
+import { ApiClient } from '../core/api-client.service';
 import { ShoppingListItem } from '../models/inventory.model';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class ShoppingListService {
-  constructor(private db: DatabaseService) {}
+  private readonly api = inject(ApiClient);
 
-  async getItems(userId: number): Promise<ShoppingListItem[]> {
-    try {
-      const query = `
-        SELECT * FROM shopping_list 
-        WHERE user_id = ? 
-        ORDER BY is_purchased ASC, created_at DESC
-      `;
-      const result = await this.db.query(query, [userId]);
-      return this.mapToShoppingListItems(result.values || []);
-    } catch (error) {
-      console.error('Error getting shopping list items:', error);
-      return [];
-    }
+  async getShoppingList(): Promise<ShoppingListItem[]> {
+    return this.api.get<ShoppingListItem[]>('/api/shopping-list');
+  }
+
+  async getItems(): Promise<ShoppingListItem[]> {
+    return this.getShoppingList();
   }
 
   async addItem(item: ShoppingListItem): Promise<boolean> {
     try {
-      const query = `
-        INSERT INTO shopping_list (user_id, name, quantity, notes, category_id, is_purchased)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `;
-      await this.db.run(query, [
-        item.userId,
-        item.name,
-        item.quantity || null,
-        item.notes || null,
-        item.categoryId || null,
-        item.isPurchased ? 1 : 0
-      ]);
+      await this.api.post<ShoppingListItem>('/api/shopping-list', item);
       return true;
-    } catch (error) {
-      console.error('Error adding shopping list item:', error);
+    } catch {
       return false;
     }
   }
 
   async updateItem(item: ShoppingListItem): Promise<boolean> {
+    if (!item.id) return false;
     try {
-      const query = `
-        UPDATE shopping_list SET
-          name = ?, quantity = ?, notes = ?, category_id = ?, is_purchased = ?
-        WHERE id = ?
-      `;
-      await this.db.run(query, [
-        item.name,
-        item.quantity || null,
-        item.notes || null,
-        item.categoryId || null,
-        item.isPurchased ? 1 : 0,
-        item.id
-      ]);
+      await this.api.patch(`/api/shopping-list/${item.id}`, item);
       return true;
-    } catch (error) {
-      console.error('Error updating shopping list item:', error);
+    } catch {
       return false;
     }
   }
 
-  async togglePurchased(itemId: number): Promise<boolean> {
+  // Flips the `isPurchased` flag. Caller can pass an explicit value; otherwise
+  // the current row is fetched and the flag is toggled.
+  async togglePurchased(itemId: number, isPurchased?: boolean): Promise<boolean> {
     try {
-      const query = `
-        UPDATE shopping_list SET is_purchased = CASE WHEN is_purchased = 0 THEN 1 ELSE 0 END
-        WHERE id = ?
-      `;
-      await this.db.run(query, [itemId]);
+      let next = isPurchased;
+      if (next === undefined) {
+        const list = await this.getShoppingList();
+        next = !list.find((i) => i.id === itemId)?.isPurchased;
+      }
+      await this.api.patch(`/api/shopping-list/${itemId}`, { isPurchased: next });
       return true;
-    } catch (error) {
-      console.error('Error toggling purchased status:', error);
+    } catch {
       return false;
     }
   }
 
   async deleteItem(itemId: number): Promise<boolean> {
     try {
-      const query = `DELETE FROM shopping_list WHERE id = ?`;
-      await this.db.run(query, [itemId]);
+      await this.api.delete(`/api/shopping-list/${itemId}`);
       return true;
-    } catch (error) {
-      console.error('Error deleting shopping list item:', error);
+    } catch {
       return false;
     }
   }
 
-  async clearPurchased(userId: number): Promise<boolean> {
-    try {
-      const query = `DELETE FROM shopping_list WHERE user_id = ? AND is_purchased = 1`;
-      await this.db.run(query, [userId]);
-      return true;
-    } catch (error) {
-      console.error('Error clearing purchased items:', error);
-      return false;
-    }
+  async clearPurchased(): Promise<boolean> {
+    const list = await this.getShoppingList();
+    const ids = list.filter((i) => i.isPurchased && i.id).map((i) => i.id as number);
+    const results = await Promise.allSettled(ids.map((id) => this.deleteItem(id)));
+    return results.every((r) => r.status === 'fulfilled');
   }
 
-  async exportToText(userId: number): Promise<string> {
+  // Plain-text export of unpurchased items for sharing. Tries the Web Share
+  // API first, falls back to clipboard; both failures are non-fatal because
+  // the text is still returned to the caller.
+  async exportToText(): Promise<string> {
+    const items = await this.getShoppingList();
+    const lines = items
+      .filter((i) => !i.isPurchased)
+      .map((i) => `- ${i.name}${i.quantity ? ` (${i.quantity})` : ''}`);
+    const text = lines.length ? `Shopping List:\n${lines.join('\n')}` : 'Shopping list is empty.';
     try {
-      const items = await this.getItems(userId);
-      const unpurchased = items.filter(item => !item.isPurchased);
-      
-      let text = '=== Shopping List ===\n\n';
-      unpurchased.forEach((item, index) => {
-        const quantityText = item.quantity ? ` - ${item.quantity}` : '';
-        text += `${index + 1}. ${item.name}${quantityText}\n`;
-      });
-      
-      return text;
-    } catch (error) {
-      console.error('Error exporting shopping list:', error);
-      return '';
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        await navigator.share({ title: 'Shopping List', text });
+      } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+      }
+    } catch {
+      // intentional: failure to share/copy doesn't invalidate the text result.
     }
-  }
-
-  private mapToShoppingListItems(rows: any[]): ShoppingListItem[] {
-    return rows.map(row => ({
-      id: row.id,
-      userId: row.user_id,
-      name: row.name,
-      quantity: row.quantity,
-      notes: row.notes,
-      categoryId: row.category_id,
-      isPurchased: row.is_purchased === 1,
-      createdAt: row.created_at
-    }));
+    return text;
   }
 }

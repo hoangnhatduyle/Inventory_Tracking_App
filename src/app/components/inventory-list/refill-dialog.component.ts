@@ -292,7 +292,7 @@ export class RefillDialogComponent implements OnInit {
     @Inject(MAT_DIALOG_DATA) public data: {
       item: InventoryItem;
       currentQuantity: number;
-      userId: number;
+      userId: string;
     },
     private expirationAIService: ExpirationAIService,
     private snackBar: MatSnackBar,
@@ -321,12 +321,10 @@ export class RefillDialogComponent implements OnInit {
     this.isLoadingAI = true;
 
     try {
-      const suggestion = await this.expirationAIService.suggestExpiration(
-        this.data.item.name,
-        this.purchaseDate,
-        null,
-        this.data.userId
-      );
+      const suggestion = await this.expirationAIService.suggestExpiration({
+        itemName: this.data.item.name,
+        purchaseDate: this.purchaseDate.toISOString().slice(0, 10),
+      });
 
       const suggestedDate = new Date(this.purchaseDate);
       suggestedDate.setDate(suggestedDate.getDate() + suggestion.days);
@@ -349,9 +347,10 @@ export class RefillDialogComponent implements OnInit {
           this.snackBar.open('✓ AI suggestion applied', 'Close', { duration: 3000 });
         }
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('AI suggestion error:', error);
-      this.snackBar.open(error.message || 'Failed to get AI suggestion', 'Close', { duration: 5000 });
+      const msg = error instanceof Error ? error.message : 'Failed to get AI suggestion';
+      this.snackBar.open(msg, 'Close', { duration: 5000 });
     } finally {
       this.isLoadingAI = false;
     }

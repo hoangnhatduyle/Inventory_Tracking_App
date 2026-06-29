@@ -15,17 +15,22 @@ export class ErrorHandlerService {
   /**
    * Show a detailed error dialog
    */
-  showError(title: string, message: string, error?: any) {
+  showError(title: string, message: string, error?: unknown) {
     console.error(`[${title}]`, message, error);
 
     let details: string | undefined;
     if (error) {
       if (error instanceof Error) {
         details = error.stack || error.message;
-      } else if (error.message) {
-        details = error.message;
       } else if (typeof error === 'string') {
         details = error;
+      } else if (
+        typeof error === 'object' &&
+        error !== null &&
+        'message' in error &&
+        typeof (error as { message?: unknown }).message === 'string'
+      ) {
+        details = (error as { message: string }).message;
       } else {
         details = JSON.stringify(error, null, 2);
       }
@@ -58,10 +63,16 @@ export class ErrorHandlerService {
   /**
    * Handle common API/database errors
    */
-  handleDataError(operation: string, error: any) {
+  handleDataError(operation: string, error: unknown) {
     let userMessage = `Failed to ${operation}. Please try again.`;
 
-    const errorMsg = error?.message?.toLowerCase() ?? '';
+    const rawMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'object' && error !== null && 'message' in error
+          ? String((error as { message: unknown }).message ?? '')
+          : '';
+    const errorMsg = rawMessage.toLowerCase();
     if (errorMsg.includes('network')) {
       userMessage = `Network error while trying to ${operation}. Please check your connection.`;
     } else if (errorMsg.includes('timeout')) {

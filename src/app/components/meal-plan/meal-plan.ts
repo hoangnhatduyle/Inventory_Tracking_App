@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -34,14 +35,15 @@ import { toLocalDateString } from '../../utils/date.utils';
     MatDialogModule,
     MatChipsModule,
     MatTooltipModule,
-    RecipeManagerComponent
+    RecipeManagerComponent,
+    DragDropModule
   ],
   templateUrl: './meal-plan.html',
   styleUrl: './meal-plan.scss'
 })
 export class MealPlanComponent implements OnInit {
-  userId: number | null = null;
-  activeView: 'calendar' | 'recipes' | 'summary' = 'calendar';
+  userId: string | null = null;
+  activeView: 'calendar' | 'meals' | 'summary' = 'calendar';
   calendarMode: 'weekly' | 'monthly' = 'weekly';
   loading = false;
 
@@ -154,12 +156,8 @@ export class MealPlanComponent implements OnInit {
     if (!this.userId) return;
     this.loading = true;
     try {
-      const weekEnd = new Date(this.currentWeekStart);
-      weekEnd.setDate(weekEnd.getDate() + 6);
       this.weeklyMeals = await this.mealPlanService.getMealsByWeek(
-        this.userId,
         toLocalDateString(this.currentWeekStart),
-        toLocalDateString(weekEnd)
       );
     } finally {
       this.loading = false;
@@ -171,9 +169,8 @@ export class MealPlanComponent implements OnInit {
     this.loading = true;
     try {
       this.monthlyMeals = await this.mealPlanService.getMealsByMonth(
-        this.userId,
         this.currentMonthYear.getFullYear(),
-        this.currentMonthYear.getMonth()
+        this.currentMonthYear.getMonth(),
       );
     } finally {
       this.loading = false;
@@ -184,7 +181,7 @@ export class MealPlanComponent implements OnInit {
     if (!this.userId) return;
     this.loading = true;
     try {
-      this.summary = await this.mealPlanService.getSummary(this.userId);
+      this.summary = await this.mealPlanService.getSummary();
     } finally {
       this.loading = false;
     }
@@ -256,6 +253,11 @@ export class MealPlanComponent implements OnInit {
     return this.monthlyMeals.some(m => m.planDate === dateStr && m.mealType === mealType);
   }
 
+  getMealNameForType(dateStr: string, mealType: MealType): string | null {
+    const meal = this.monthlyMeals.find(m => m.planDate === dateStr && m.mealType === mealType);
+    return meal ? meal.mealName : null;
+  }
+
   mealTypeIcon(type: MealType): string {
     return { breakfast: 'wb_sunny', lunch: 'lunch_dining', dinner: 'dinner_dining' }[type];
   }
@@ -271,6 +273,11 @@ export class MealPlanComponent implements OnInit {
     ref.afterClosed().subscribe(async (result) => {
       if (!result) return;
       await this.mealPlanService.addMealPlan({ ...result, userId: this.userId! });
+      if (!result.recipeId) {
+        // Refresh autocomplete: the API auto-upserts custom meal names into
+        // the user's recipe library on addMealPlan.
+        this.recipeOptions = await this.mealPlanService.getRecipeNames();
+      }
       await this.loadWeeklyMeals();
       if (this.calendarMode === 'monthly') await this.loadMonthlyMeals();
     });
@@ -284,6 +291,9 @@ export class MealPlanComponent implements OnInit {
     ref.afterClosed().subscribe(async (result) => {
       if (!result) return;
       await this.mealPlanService.updateMealPlan({ ...entry, ...result });
+      if (!result.recipeId) {
+        this.recipeOptions = await this.mealPlanService.getRecipeNames();
+      }
       await this.loadWeeklyMeals();
       if (this.calendarMode === 'monthly') await this.loadMonthlyMeals();
       if (this.activeView === 'summary') await this.loadSummary();
@@ -292,7 +302,7 @@ export class MealPlanComponent implements OnInit {
 
   async onToggleFavorite(entry: MealPlan, event: MouseEvent): Promise<void> {
     event.stopPropagation();
-    const ok = await this.mealPlanService.toggleFavorite(entry.id!, this.userId!, entry.isFavorite);
+    const ok = await this.mealPlanService.toggleFavorite(entry);
     if (ok) {
       entry.isFavorite = !entry.isFavorite;
     } else {
@@ -308,8 +318,8 @@ export class MealPlanComponent implements OnInit {
       this.weeklyMeals = this.weeklyMeals.filter(m => m.id !== entry.id);
       this.monthlyMeals = this.monthlyMeals.filter(m => m.id !== entry.id);
       if (this.summary) {
-        this.summary.favoriteMeals = this.summary.favoriteMeals.filter(m => m.id !== entry.id);
-        this.summary.recentMeals = this.summary.recentMeals.filter(m => m.id !== entry.id);
+        this.summary.favoriteMeals = this.summary.favoriteMeals.filter((m) => m.id !== entry.id);
+        this.summary.recentMeals = this.summary.recentMeals.filter((m) => m.id !== entry.id);
       }
     } else {
       this.snackBar.open('Failed to delete meal', 'Close', { duration: 3000 });
@@ -318,5 +328,25 @@ export class MealPlanComponent implements OnInit {
 
   openSummaryEditDialog(entry: MealPlan): void {
     this.openEditDialog(entry);
+  }
+
+  async onMealDrop(event: CdkDragDrop<{ dateStr: string; mealType: MealType }>): Promise<void> {
+    if (event.previousContainer === event.container) return;
+    const entry: MealPlan = event.item.data;
+    const { dateStr, mealType } = event.container.data;
+    if (!confirm(`Copy "${entry.mealName}" to ${dateStr} (${mealType})?`)) {
+      await this.loadWeeklyMeals();
+      return;
+    }
+    await this.mealPlanService.addMealPlan({
+      userId: this.userId!,
+      planDate: dateStr,
+      mealType,
+      mealName: entry.mealName,
+      recipeId: entry.recipeId ?? null,
+      isFavorite: false,
+      notes: entry.notes
+    });
+    await this.loadWeeklyMeals();
   }
 }

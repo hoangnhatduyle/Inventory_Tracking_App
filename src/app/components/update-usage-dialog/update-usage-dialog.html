@@ -121,12 +121,12 @@
         @for (record of usageHistory; track record.id) {
         <div class="history-item">
           <div class="history-info">
-            <span class="history-date">{{ record.recorded_at | date:'short' }}</span>
-            <span class="history-amount">-{{ record.amount_used | number:'1.0-2' }} {{ item.unit }}</span>
+            <span class="history-date">{{ record.recordedAt | date:'short' }}</span>
+            <span class="history-amount">-{{ record.amountUsed | number:'1.0-2' }} {{ item.unit }}</span>
           </div>
           <div class="history-remaining">
             <span class="remaining-label">Remaining:</span>
-            <span class="remaining-value">{{ record.remaining_amount | number:'1.0-2' }} {{ item.unit }}</span>
+            <span class="remaining-value">{{ record.remainingAmount | number:'1.0-2' }} {{ item.unit }}</span>
           </div>
           @if (record.notes) {
           <div class="history-notes">{{ record.notes }}</div>

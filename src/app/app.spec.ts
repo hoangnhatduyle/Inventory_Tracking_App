@@ -1,27 +1,29 @@
-import { TestBed, NO_ERRORS_SCHEMA } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
+import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { provideRouter } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
 import { App } from './app';
-import { DatabaseService } from './services/database.service';
 import { AuthService } from './services/auth.service';
 
 describe('App', () => {
   beforeEach(async () => {
-    const mockDbService = jasmine.createSpyObj('DatabaseService', ['initializeDatabase', 'query', 'run']);
     const mockAuthService = jasmine.createSpyObj(
       'AuthService',
       ['isAuthenticated', 'logout', 'getCurrentUser'],
-      { authState$: new BehaviorSubject(false) }
+      { authState$: new BehaviorSubject(false) },
     );
+    (mockAuthService.isAuthenticated as jasmine.Spy).and.resolveTo(false);
+    (mockAuthService.logout as jasmine.Spy).and.resolveTo(undefined);
 
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
-        { provide: DatabaseService, useValue: mockDbService },
         { provide: AuthService, useValue: mockAuthService },
-        provideRouter([])
+        provideRouter([]),
+        provideHttpClient(),
       ],
-      schemas: [NO_ERRORS_SCHEMA]
+      schemas: [CUSTOM_ELEMENTS_SCHEMA],
     }).compileComponents();
   });
 

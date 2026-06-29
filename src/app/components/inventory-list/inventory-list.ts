@@ -60,7 +60,7 @@ import { ViewBatchesDialogComponent } from './view-batches-dialog.component';
   styleUrl: './inventory-list.scss',
 })
 export class InventoryList implements OnInit, OnDestroy {
-  userId: number | null = null;
+  userId: string | null = null;
   items: InventoryItem[] = [];
   filteredItems: InventoryItem[] = [];
   categories: Category[] = [];
@@ -177,9 +177,9 @@ export class InventoryList implements OnInit, OnDestroy {
 
     this.isLoading = true;
     try {
-      this.items = await this.inventoryService.getItems(this.userId);
+      this.items = await this.inventoryService.getItems();
       this.categories = await this.inventoryService.getCategories();
-      this.locations = await this.inventoryService.getLocations(this.userId);
+      this.locations = await this.inventoryService.getLocations();
       
       // Load images for all items
       await this.loadItemImages();
@@ -198,9 +198,10 @@ export class InventoryList implements OnInit, OnDestroy {
       if (item.id) {
         try {
           const images = await this.inventoryService.getItemImages(item.id);
-          if (images.length > 0 && images[0].imagePath) {
-            // Convert file path to base64 data URI for display
-            const imageUrl = await this.imageService.getImageUrl(images[0].imagePath);
+          const primary = images[0];
+          const path = primary?.imagePath ?? primary?.storagePath;
+          if (path) {
+            const imageUrl = await this.imageService.getImageUrl(path);
             if (imageUrl) {
               this.itemImages.set(item.id, imageUrl);
             }

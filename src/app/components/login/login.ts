@@ -1,5 +1,5 @@
-import { Component } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, OnInit, inject } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -10,6 +10,8 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../services/auth.service';
+
+type ViewMode = 'login' | 'register' | 'reset';
 
 @Component({
   selector: 'app-login',
@@ -22,109 +24,121 @@ import { AuthService } from '../../services/auth.service';
     MatButtonModule,
     MatTabsModule,
     MatIconModule,
-    MatSnackBarModule
+    MatSnackBarModule,
   ],
   templateUrl: './login.html',
   styleUrl: './login.css',
 })
-export class Login {
-  // Login form
-  loginUsername = '';
+export class Login implements OnInit {
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly snackBar = inject(MatSnackBar);
+
+  loginEmail = '';
   loginPassword = '';
 
-  // Register form
-  registerUsername = '';
+  registerEmail = '';
   registerPassword = '';
   registerConfirmPassword = '';
-  registerEmail = '';
+
+  resetEmail = '';
 
   isLoading = false;
-  viewMode: 'login' | 'register' = 'login';
+  viewMode: ViewMode = 'login';
 
-  constructor(
-    private authService: AuthService,
-    private router: Router,
-    private snackBar: MatSnackBar
-  ) {}
+  // Mirrors so the existing HTML templates that still reference `loginUsername`
+  // / `registerUsername` keep compiling during the migration. Both setters
+  // forward to the canonical email fields.
+  get loginUsername(): string { return this.loginEmail; }
+  set loginUsername(v: string) { this.loginEmail = v; }
+  get registerUsername(): string { return this.registerEmail; }
+  set registerUsername(v: string) { this.registerEmail = v; }
+
+  ngOnInit(): void {
+    this.route.queryParamMap.subscribe((params) => {
+      if (params.get('reason') === 'session-expired') {
+        this.showMessage('Your session expired - please sign in again.');
+      }
+    });
+  }
 
   async onLogin() {
-    if (!this.loginUsername || !this.loginPassword) {
-      this.showMessage('Please fill in all fields');
+    if (!this.loginEmail || !this.loginPassword) {
+      this.showMessage('Please enter your email and password');
       return;
     }
-
     this.isLoading = true;
     try {
-      const result = await this.authService.login(this.loginUsername, this.loginPassword);
-
+      const result = await this.authService.login(this.loginEmail, this.loginPassword);
       if (result.success) {
-        this.showMessage('Login successful!');
-        this.router.navigate(['/dashboard']);
+        void this.router.navigate(['/dashboard']);
       } else {
         this.showMessage(result.message);
       }
-    } catch (error) {
-      this.showMessage('Login failed: ' + (error as Error).message);
+    } catch {
+      this.showMessage('Login failed. Please try again.');
     } finally {
       this.isLoading = false;
     }
   }
 
   async onRegister() {
-    if (!this.registerUsername || !this.registerPassword) {
-      this.showMessage('Please fill in required fields');
+    if (!this.registerEmail || !this.registerPassword) {
+      this.showMessage('Please fill in all required fields');
       return;
     }
-
     if (this.registerPassword !== this.registerConfirmPassword) {
       this.showMessage('Passwords do not match');
       return;
     }
-
-    if (this.registerPassword.length < 6) {
-      this.showMessage('Password must be at least 6 characters long');
+    if (this.registerPassword.length < 12) {
+      this.showMessage('Password must be at least 12 characters long');
       return;
     }
-
     this.isLoading = true;
     try {
-      const result = await this.authService.register(
-        this.registerUsername,
-        this.registerPassword,
-        this.registerEmail
-      );
-
+      const result = await this.authService.register(this.registerEmail, this.registerPassword);
       if (result.success) {
-        this.showMessage('Registration successful! Please login.');
-        // Clear register form
-        this.registerUsername = '';
+        this.showMessage(result.message);
+        this.registerEmail = '';
         this.registerPassword = '';
         this.registerConfirmPassword = '';
-        this.registerEmail = '';
         this.switchToLogin();
       } else {
         this.showMessage(result.message);
       }
-    } catch (error) {
-      this.showMessage('Registration failed: ' + (error as Error).message);
+    } catch {
+      this.showMessage('Registration failed. Please try again.');
     } finally {
       this.isLoading = false;
     }
   }
 
-  switchToRegister() {
-    this.viewMode = 'register';
+  async onRequestReset() {
+    if (!this.resetEmail) {
+      this.showMessage('Please enter your email');
+      return;
+    }
+    this.isLoading = true;
+    try {
+      const r = await this.authService.requestPasswordReset(this.resetEmail);
+      this.showMessage(r.message);
+      if (r.success) this.switchToLogin();
+    } finally {
+      this.isLoading = false;
+    }
   }
 
-  switchToLogin() {
-    this.viewMode = 'login';
-  }
+  switchToRegister() { this.viewMode = 'register'; }
+  switchToLogin() { this.viewMode = 'login'; }
+  switchToReset() { this.viewMode = 'reset'; }
 
   private showMessage(message: string) {
     this.snackBar.open(message, 'Close', {
-      duration: 3000,
+      duration: 4000,
       horizontalPosition: 'center',
-      verticalPosition: 'top'
+      verticalPosition: 'top',
     });
   }
 }

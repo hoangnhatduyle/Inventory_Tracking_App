@@ -77,7 +77,7 @@ export class CategorySelectorComponent implements OnInit {
 
   constructor(
     private bottomSheetRef: MatBottomSheetRef<CategorySelectorComponent>,
-    @Inject(MAT_BOTTOM_SHEET_DATA) public data: any,
+    @Inject(MAT_BOTTOM_SHEET_DATA) public data: unknown,
     private inventoryService: InventoryService
   ) {}
 

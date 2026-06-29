@@ -9,7 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 
 interface DialogData {
   tableName: string;
-  row: Record<string, any>;
+  row: Record<string, unknown>;
   columns: { name: string; type: string; notnull: boolean; pk: boolean }[];
 }
 
@@ -100,7 +100,7 @@ interface DialogData {
   `]
 })
 export class RowEditDialogComponent {
-  editedRow: Record<string, any>;
+  editedRow: Record<string, unknown>;
 
   constructor(
     public dialogRef: MatDialogRef<RowEditDialogComponent>,

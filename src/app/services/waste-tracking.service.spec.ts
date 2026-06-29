@@ -1,68 +1,126 @@
 import { TestBed } from '@angular/core/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
+
 import { WasteTrackingService } from './waste-tracking.service';
-import { DatabaseService } from './database.service';
+import { ApiClient } from '../core/api-client.service';
+import { SupabaseAuthService } from '../core/supabase-auth.service';
+import { WastedItem } from '../models/waste-tracking.model';
+
+class MockSupabaseAuthService {
+  async getAccessToken(): Promise<string | null> {
+    return 'test-jwt';
+  }
+}
+
+class MockRouter {
+  navigate = jasmine.createSpy('navigate').and.resolveTo(true);
+}
+
+const flushMicrotasks = async () => {
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+};
+const urlEndsWith = (suffix: string) => (req: { url: string }) => req.url.endsWith(suffix);
 
 describe('WasteTrackingService', () => {
   let service: WasteTrackingService;
-  let mockDb: jasmine.SpyObj<DatabaseService>;
+  let httpMock: HttpTestingController;
 
   beforeEach(() => {
-    mockDb = jasmine.createSpyObj('DatabaseService', ['query', 'run']);
-
     TestBed.configureTestingModule({
       providers: [
+        ApiClient,
         WasteTrackingService,
-        { provide: DatabaseService, useValue: mockDb }
-      ]
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: SupabaseAuthService, useClass: MockSupabaseAuthService },
+        { provide: Router, useClass: MockRouter },
+      ],
     });
-
     service = TestBed.inject(WasteTrackingService);
+    httpMock = TestBed.inject(HttpTestingController);
   });
 
-  describe('getWasteStatistics - wasteByMonth order', () => {
-    it('should return wasteByMonth in chronological order (oldest to newest)', async () => {
-      // Return wasted items spread across multiple months out of order
-      mockDb.query.and.returnValue(Promise.resolve({
-        values: [
-          { id: 1, item_name: 'Item 1', wasted_date: '2025-12-15', category_id: 1, quantity: 2, unit: 'pieces', price: 5 },
-          { id: 2, item_name: 'Item 2', wasted_date: '2026-01-20', category_id: 1, quantity: 1, unit: 'pieces', price: 3 },
-          { id: 3, item_name: 'Item 3', wasted_date: '2025-11-10', category_id: 1, quantity: 3, unit: 'pieces', price: 10 },
-          { id: 4, item_name: 'Item 4', wasted_date: '2026-03-05', category_id: 1, quantity: 1, unit: 'pieces', price: 2 }
-        ]
-      }));
+  afterEach(() => httpMock.verify());
 
-      const stats = await service.getWasteStatistics(1);
+  it('getWasteLog hits /api/waste without a userId param', async () => {
+    const pending = service.getWasteLog();
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/waste'));
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.keys()).toEqual([]);
+    req.flush({ data: [] });
+    await pending;
+  });
 
-      // wasteByMonth should be sorted chronologically
-      const months = stats.wasteByMonth.map(m => m.month);
-      const sortedMonths = [...months].sort();
-
-      expect(months).toEqual(sortedMonths);
-    });
-
-    it('should return only the last 6 months', async () => {
-      // Return items from 8 different months
-      const dates = [
-        '2025-08-01', '2025-09-15', '2025-10-20', '2025-11-10',
-        '2025-12-15', '2026-01-20', '2026-02-10', '2026-03-05'
-      ];
-
-      const wastedItems = dates.map((date, idx) => ({
-        id: idx + 1,
-        item_name: `Item ${idx + 1}`,
-        wasted_date: date,
-        category_id: 1,
+  it('aggregates wasted items by category and month with total value', async () => {
+    const log: WastedItem[] = [
+      {
+        id: 1,
+        itemName: 'Milk',
+        categoryId: 1,
+        categoryName: 'Dairy',
         quantity: 1,
-        unit: 'pieces',
-        price: 5
-      }));
+        unit: 'l',
+        price: 3,
+        wastedDate: '2026-06-01',
+      },
+      {
+        id: 2,
+        itemName: 'Yogurt',
+        categoryId: 1,
+        categoryName: 'Dairy',
+        quantity: 2,
+        unit: 'cup',
+        price: 1.5,
+        wastedDate: '2026-06-15',
+      },
+      {
+        id: 3,
+        itemName: 'Lettuce',
+        categoryId: 2,
+        categoryName: 'Produce',
+        quantity: 1,
+        unit: 'head',
+        price: 2,
+        wastedDate: '2026-05-10',
+      },
+    ];
+    const pending = service.getWasteStatistics();
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/waste'));
+    req.flush({ data: log });
+    const stats = await pending;
+    expect(stats.totalItemsWasted).toBe(3);
+    // 3*1 + 1.5*2 + 2*1 = 8
+    expect(stats.totalValueLost).toBe(8);
 
-      mockDb.query.and.returnValue(Promise.resolve({ values: wastedItems }));
+    const dairy = stats.wasteByCategory.find((c) => c.categoryName === 'Dairy');
+    expect(dairy).toBeTruthy();
+    expect(dairy!.itemsWasted).toBe(2);
+    expect(dairy!.valueLost).toBe(6);
 
-      const stats = await service.getWasteStatistics(1);
+    const months = stats.wasteByMonth.map((m) => m.month);
+    expect(months).toContain('2026-06');
+    expect(months).toContain('2026-05');
+  });
 
-      // Should contain only the last 6 months (from 8 total)
-      expect(stats.wasteByMonth.length).toBeLessThanOrEqual(6);
-    });
+  it('handles items with missing price/quantity gracefully (no NaN)', async () => {
+    const log: WastedItem[] = [
+      {
+        itemName: 'Unknown',
+        quantity: 1,
+        unit: '',
+        wastedDate: '2026-06-01',
+      },
+    ];
+    const pending = service.getWasteStatistics();
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/waste'));
+    req.flush({ data: log });
+    const stats = await pending;
+    expect(stats.totalValueLost).toBe(0);
+    expect(stats.wasteByCategory[0].categoryName).toBe('Unknown');
   });
 });

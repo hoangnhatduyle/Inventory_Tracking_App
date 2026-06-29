@@ -9,7 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSliderModule } from '@angular/material/slider';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { InventoryItem, ShoppingListItem } from '../../models/inventory.model';
+import { InventoryItem, ShoppingListItem, UsageHistory } from '../../models/inventory.model';
 import { InventoryService } from '../../services/inventory.service';
 import { ShoppingListService } from '../../services/shopping-list.service';
 
@@ -54,7 +54,7 @@ export class UpdateUsageDialog implements OnInit {
   // Calculated values
   percentageRemaining: number = 100;
   percentageUsed: number = 0;
-  usageHistory: any[] = [];
+  usageHistory: UsageHistory[] = [];
 
   constructor(
     public dialogRef: MatDialogRef<UpdateUsageDialog>,
@@ -100,7 +100,7 @@ export class UpdateUsageDialog implements OnInit {
 
   onCurrentQuantityChange() {
     // Manual input of current quantity
-    this.currentQuantity = parseFloat(this.currentQuantity as any) || 0;
+    this.currentQuantity = parseFloat(String(this.currentQuantity)) || 0;
     if (this.currentQuantity < 0) this.currentQuantity = 0;
     if (this.currentQuantity > this.initialQuantity) this.currentQuantity = this.initialQuantity;
 
@@ -115,7 +115,7 @@ export class UpdateUsageDialog implements OnInit {
 
   onAmountUsedChange() {
     // Manual input of amount used (incremental)
-    this.amountToUse = parseFloat(this.amountToUse as any) || 0;
+    this.amountToUse = parseFloat(String(this.amountToUse)) || 0;
     const previousQuantity = this.item.currentQuantity != null
       ? this.item.currentQuantity
       : this.item.quantity;

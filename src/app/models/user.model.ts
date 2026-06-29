@@ -1,15 +1,15 @@
+// User model. `id` is the Supabase Auth user UUID.
 export interface User {
-  id?: number;
+  id: string;
   username: string;
-  password: string;
   email?: string;
   createdAt?: string;
 }
 
+// Session metadata kept for components that read it. The actual session is
+// managed by @supabase/supabase-js inside SupabaseAuthService.
 export interface Session {
-  id?: number;
-  userId: number;
+  userId: string;
   token: string;
   expiresAt: string;
-  createdAt?: string;
 }

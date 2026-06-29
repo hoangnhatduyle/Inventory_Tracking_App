@@ -1,170 +1,134 @@
 import { TestBed } from '@angular/core/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
+
 import { InventoryService } from './inventory.service';
-import { DatabaseService } from './database.service';
-import { NotificationService } from './notification.service';
-import { toLocalDateString, daysFromNow } from '../utils/date.utils';
+import { ApiClient } from '../core/api-client.service';
+import { SupabaseAuthService } from '../core/supabase-auth.service';
+import { InventoryItem } from '../models/inventory.model';
+
+class MockSupabaseAuthService {
+  async getAccessToken(): Promise<string | null> {
+    return 'test-jwt';
+  }
+}
+
+class MockRouter {
+  navigate = jasmine.createSpy('navigate').and.resolveTo(true);
+}
+
+const flushMicrotasks = async () => {
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+};
+const urlEndsWith = (suffix: string) => (req: { url: string }) => req.url.endsWith(suffix);
+
+const sampleItem = (overrides: Partial<InventoryItem> = {}): InventoryItem => ({
+  id: 1,
+  userId: 'user-uuid',
+  name: 'Milk',
+  quantity: 1,
+  unit: 'l',
+  categoryId: 1,
+  locationId: 1,
+  purchaseDate: '2026-06-01',
+  expirationDate: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10),
+  notificationEnabled: true,
+  notificationDaysBefore: 3,
+  ...overrides,
+});
 
 describe('InventoryService', () => {
   let service: InventoryService;
-  let mockDb: jasmine.SpyObj<DatabaseService>;
-  let mockNotification: jasmine.SpyObj<NotificationService>;
+  let httpMock: HttpTestingController;
 
   beforeEach(() => {
-    mockDb = jasmine.createSpyObj('DatabaseService', ['query', 'run', 'beginTransaction', 'commitTransaction', 'rollbackTransaction']);
-    mockNotification = jasmine.createSpyObj('NotificationService', ['checkAndNotifyLowStock', 'scheduleLowStockCheck']);
-
     TestBed.configureTestingModule({
       providers: [
+        ApiClient,
         InventoryService,
-        { provide: DatabaseService, useValue: mockDb },
-        { provide: NotificationService, useValue: mockNotification }
-      ]
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: SupabaseAuthService, useClass: MockSupabaseAuthService },
+        { provide: Router, useClass: MockRouter },
+      ],
     });
-
     service = TestBed.inject(InventoryService);
+    httpMock = TestBed.inject(HttpTestingController);
   });
 
-  describe('filterItems - expiry bounds', () => {
-    it('should exclude already-expired items from expiring-soon filter', async () => {
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
+  afterEach(() => httpMock.verify());
 
-      const yesterdayStr = toLocalDateString(yesterday);
-      const tomorrowStr = toLocalDateString(tomorrow);
-
-      mockDb.query.and.returnValue(Promise.resolve({
-        values: [
-          { id: 1, name: 'Expired', expirationDate: yesterdayStr, categoryId: 1 },
-          { id: 2, name: 'Expiring Soon', expirationDate: tomorrowStr, categoryId: 1 }
-        ]
-      }));
-
-      const result = await service.filterItems(1, undefined, undefined, 7);
-
-      expect(result.length).toBe(1);
-      expect(result[0].name).toBe('Expiring Soon');
-    });
-
-    it('should include items expiring within the window', async () => {
-      const today = new Date();
-      const in3days = new Date(today);
-      in3days.setDate(in3days.getDate() + 3);
-
-      const in3daysStr = toLocalDateString(in3days);
-
-      mockDb.query.and.returnValue(Promise.resolve({
-        values: [
-          { id: 1, name: 'Expiring in 3 days', expirationDate: in3daysStr, categoryId: 1 }
-        ]
-      }));
-
-      const result = await service.filterItems(1, undefined, undefined, 7);
-
-      expect(result.length).toBe(1);
-      expect(result[0].name).toBe('Expiring in 3 days');
-    });
+  it('does NOT pass a userId query param to /api/inventory (server resolves it from the JWT)', async () => {
+    const pending = service.getItems();
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/inventory'));
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.keys()).toEqual([]);
+    req.flush({ data: [] });
+    await pending;
   });
 
-  describe('initialQuantity - nullish coalescing', () => {
-    it('should store initialQuantity = 0 without treating it as falsy', async () => {
-      const item: any = {
-        userId: 1,
-        name: 'Zero Quantity Item',
-        initialQuantity: 0,
-        currentQuantity: 0,
-        categoryId: 1,
-        quantity: 0,
-        unit: 'pieces',
-        purchaseDate: toLocalDateString(new Date()),
-        expirationDate: daysFromNow(10),
-        locationId: 1,
-        notificationEnabled: false,
-        notificationDaysBefore: 3
-      };
-
-      mockDb.run.and.returnValue(Promise.resolve({ changes: { lastId: 1 } }));
-
-      await service.addItem(item);
-
-      const runCall = mockDb.run.calls.mostRecent();
-      const params = runCall.args[1];
-
-      // initialQuantity should be present in params (not skipped as falsy)
-      expect(params).toContain(0);
-    });
+  it('returns server item list as-is', async () => {
+    const pending = service.getItems();
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/inventory'));
+    req.flush({ data: [sampleItem(), sampleItem({ id: 2, name: 'Eggs' })] });
+    const items = await pending;
+    expect(items.length).toBe(2);
+    expect(items[1].name).toBe('Eggs');
   });
 
-  describe('deductFromBatchesFIFO - over-deduction protection', () => {
-    it('should return false when deduction amount exceeds total batch stock', async () => {
-      // Mock getBatches to return total quantity of 5
-      spyOn(service, 'getBatches').and.returnValue(Promise.resolve([
-        { id: 1, itemId: 1, quantity: 5, expirationDate: '2026-04-01' }
-      ]));
-
-      mockDb.run.and.returnValue(Promise.resolve({ changes: {} }));
-
-      // Attempt to deduct 10 when only 5 available
-      const result = await service.deductFromBatchesFIFO(1, 10);
-
-      expect(result).toBe(false);
-    });
-
-    it('should successfully deduct when amount is within available stock', async () => {
-      spyOn(service, 'getBatches').and.returnValue(Promise.resolve([
-        { id: 1, itemId: 1, quantity: 10, expirationDate: '2026-04-01' }
-      ]));
-
-      mockDb.run.and.returnValue(Promise.resolve({ changes: { changes: 1 } }));
-      mockDb.beginTransaction.and.returnValue(Promise.resolve());
-      mockDb.commitTransaction.and.returnValue(Promise.resolve());
-
-      const result = await service.deductFromBatchesFIFO(1, 5);
-
-      expect(result).toBe(true);
-    });
+  it('filterItems applies category/location/expiringInDays predicates locally', async () => {
+    const futureExp = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+    const farExp = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
+    const items: InventoryItem[] = [
+      sampleItem({ id: 1, categoryId: 1, locationId: 1, expirationDate: futureExp }),
+      sampleItem({ id: 2, categoryId: 2, locationId: 1, expirationDate: futureExp }),
+      sampleItem({ id: 3, categoryId: 1, locationId: 2, expirationDate: farExp }),
+    ];
+    const pending = service.filterItems(1, 1, 7);
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/inventory'));
+    req.flush({ data: items });
+    const filtered = await pending;
+    expect(filtered.length).toBe(1);
+    expect(filtered[0].id).toBe(1);
   });
 
-  describe('deleteItem - transaction safety', () => {
-    it('should call beginTransaction before deletion', async () => {
-      mockDb.beginTransaction.and.returnValue(Promise.resolve());
-      mockDb.commitTransaction.and.returnValue(Promise.resolve());
-      mockDb.run.and.returnValue(Promise.resolve({ changes: { changes: 1 } }));
-
-      await service.deleteItem(1);
-
-      expect(mockDb.beginTransaction).toHaveBeenCalled();
-    });
-
-    it('should call commitTransaction on successful deletion', async () => {
-      mockDb.beginTransaction.and.returnValue(Promise.resolve());
-      mockDb.commitTransaction.and.returnValue(Promise.resolve());
-      mockDb.run.and.returnValue(Promise.resolve({ changes: { changes: 1 } }));
-
-      await service.deleteItem(1);
-
-      expect(mockDb.commitTransaction).toHaveBeenCalled();
-    });
+  it('markAsWasted POSTs to /api/waste/from-item (atomic on the server)', async () => {
+    const pending = service.markAsWasted(42);
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/waste/from-item'));
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ itemId: 42 });
+    req.flush({ data: { ok: true } });
+    expect(await pending).toBeTrue();
   });
 
-  describe('markAsWasted - result checking', () => {
-    it('should return false when deleteItem fails', async () => {
-      spyOn(service, 'deleteItem').and.returnValue(Promise.resolve(false));
+  it('getLowStockItems returns only items below their lowStockThreshold', async () => {
+    const items: InventoryItem[] = [
+      sampleItem({ id: 1, currentQuantity: 0.2, lowStockThreshold: 1 }),
+      sampleItem({ id: 2, currentQuantity: 5, lowStockThreshold: 1 }),
+      sampleItem({ id: 3, currentQuantity: undefined, lowStockThreshold: 1 }),
+    ];
+    const pending = service.getLowStockItems();
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/inventory'));
+    req.flush({ data: items });
+    const low = await pending;
+    expect(low.map((i) => i.id)).toEqual([1]);
+  });
 
-      const result = await service.markAsWasted(1);
-
-      expect(result).toBe(false);
-    });
-
-    it('should return true when deleteItem succeeds', async () => {
-      spyOn(service, 'deleteItem').and.returnValue(Promise.resolve(true));
-      mockDb.run.and.returnValue(Promise.resolve({ changes: {} }));
-
-      const result = await service.markAsWasted(1);
-
-      expect(result).toBe(true);
-    });
+  it('getImagesByBarcode encodes the barcode and returns [] on error', async () => {
+    const weird = 'abc/def 123';
+    const pending = service.getImagesByBarcode(weird);
+    await flushMicrotasks();
+    const req = httpMock.expectOne(
+      urlEndsWith(`/api/inventory/by-barcode/${encodeURIComponent(weird)}/images`),
+    );
+    req.flush({ error: { code: 'NOT_FOUND', message: 'no images' } }, { status: 404, statusText: 'Not Found' });
+    const result = await pending;
+    expect(result).toEqual([]);
   });
 });

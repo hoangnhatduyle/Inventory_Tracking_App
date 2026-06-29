@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { Router, UrlTree } from '@angular/router';
+import { ActivatedRouteSnapshot, Router, RouterStateSnapshot, UrlTree } from '@angular/router';
 import { authGuard } from './auth.guard';
 import { AuthService } from '../services/auth.service';
 
@@ -24,7 +24,7 @@ describe('authGuard', () => {
     router.createUrlTree.and.returnValue(new UrlTree());
 
     const result = await TestBed.runInInjectionContext(() =>
-      authGuard({} as any, {} as any)
+      authGuard({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot)
     );
 
     expect(result instanceof UrlTree).toBe(true);
@@ -35,7 +35,7 @@ describe('authGuard', () => {
     authService.isAuthenticated.and.returnValue(Promise.resolve(true));
 
     const result = await TestBed.runInInjectionContext(() =>
-      authGuard({} as any, {} as any)
+      authGuard({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot)
     );
 
     expect(result).toBe(true);

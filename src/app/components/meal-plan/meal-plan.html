@@ -14,9 +14,9 @@
           <mat-icon>calendar_month</mat-icon>
           Calendar
         </mat-button-toggle>
-        <mat-button-toggle value="recipes">
+        <mat-button-toggle value="meals">
           <mat-icon>menu_book</mat-icon>
-          Recipes
+          Meals
         </mat-button-toggle>
         <mat-button-toggle value="summary">
           <mat-icon>bar_chart</mat-icon>
@@ -54,7 +54,7 @@
 
     <!-- ---- WEEKLY VIEW ---- -->
     <div class="weekly-grid-wrapper" *ngIf="calendarMode === 'weekly'">
-      <div class="weekly-grid">
+      <div class="weekly-grid" cdkDropListGroup>
 
         <!-- Header row -->
         <div class="weekly-header-row">
@@ -74,10 +74,15 @@
           </div>
           <div *ngFor="let day of weekDays"
                class="meal-cell"
+               cdkDropList
+               [cdkDropListData]="{ dateStr: day.dateStr, mealType: mt }"
+               (cdkDropListDropped)="onMealDrop($event)"
                (click)="openAddDialog(day.dateStr, mt)">
 
             <div *ngFor="let entry of getMealsForCell(day.dateStr, mt)"
                  class="meal-chip animate-scale-in"
+                 cdkDrag
+                 [cdkDragData]="entry"
                  (click)="openEditDialog(entry); $event.stopPropagation()">
               <span class="meal-chip-name" [title]="entry.mealName">{{ entry.mealName }}</span>
               <div class="meal-chip-actions">
@@ -95,6 +100,7 @@
                   close
                 </mat-icon>
               </div>
+              <div *cdkDragPlaceholder class="drag-placeholder"></div>
             </div>
 
             <div class="add-meal-hint">
@@ -123,14 +129,23 @@
 
             <ng-container *ngIf="day">
               <span class="day-number">{{ day.date.getDate() }}</span>
-              <div class="meal-dots">
-                <span *ngIf="hasMealType(day.dateStr, 'breakfast')" class="dot breakfast" matTooltip="Breakfast"></span>
-                <span *ngIf="hasMealType(day.dateStr, 'lunch')"     class="dot lunch"     matTooltip="Lunch"></span>
-                <span *ngIf="hasMealType(day.dateStr, 'dinner')"    class="dot dinner"    matTooltip="Dinner"></span>
+              <div class="day-meals">
+                <div class="day-meal-line breakfast"
+                     *ngIf="getMealNameForType(day.dateStr, 'breakfast') as n">
+                  <span class="meal-prefix">B:</span>
+                  <span class="meal-name-text">{{ n }}</span>
+                </div>
+                <div class="day-meal-line lunch"
+                     *ngIf="getMealNameForType(day.dateStr, 'lunch') as n">
+                  <span class="meal-prefix">L:</span>
+                  <span class="meal-name-text">{{ n }}</span>
+                </div>
+                <div class="day-meal-line dinner"
+                     *ngIf="getMealNameForType(day.dateStr, 'dinner') as n">
+                  <span class="meal-prefix">D:</span>
+                  <span class="meal-name-text">{{ n }}</span>
+                </div>
               </div>
-              <span *ngIf="getMealsForDay(day.dateStr).length > 0" class="count-chip">
-                {{ getMealsForDay(day.dateStr).length }}
-              </span>
             </ng-container>
           </div>
         </div>
@@ -140,7 +155,7 @@
   </ng-container>
 
   <!-- ===== RECIPES VIEW ===== -->
-  <app-recipe-manager *ngIf="activeView === 'recipes'" [embedded]="true"></app-recipe-manager>
+  <app-recipe-manager *ngIf="activeView === 'meals'" [embedded]="true"></app-recipe-manager>
 
   <!-- ===== SUMMARY VIEW ===== -->
   <ng-container *ngIf="activeView === 'summary' && !loading">

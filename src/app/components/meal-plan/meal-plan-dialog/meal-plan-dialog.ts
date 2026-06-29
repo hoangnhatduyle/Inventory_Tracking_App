@@ -61,7 +61,7 @@ export class MealPlanDialogComponent implements OnInit {
         mealType: e.mealType,
         mealName: e.mealName,
         recipeId: e.recipeId ?? null,
-        isFavorite: e.isFavorite,
+        isFavorite: e.isFavorite ?? false,
         notes: e.notes ?? ''
       };
     } else {

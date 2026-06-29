@@ -23,7 +23,8 @@ import { AuthService } from '../../services/auth.service';
 import { BarcodeService } from '../../services/barcode.service';
 import { ErrorHandlerService } from '../../services/error-handler.service';
 import { ExpirationAIService } from '../../services/expiration-ai.service';
-import { InventoryItem, Category, Location } from '../../models/inventory.model';
+import { toLocalDateString } from '../../utils/date.utils';
+import { InventoryItem, Category, Location, BarcodeMapping } from '../../models/inventory.model';
 import { CategorySelectorComponent } from './category-selector.component';
 import { LocationSelectorComponent } from './location-selector.component';
 import { AISuggestionDialogComponent } from './ai-suggestion-dialog.component';
@@ -56,7 +57,7 @@ import { ImageSelectorDialogComponent, ImageOption } from './image-selector-dial
 export class ItemForm implements OnInit {
   itemId: number | null = null;
   isEditMode = false;
-  userId: number | null = null;
+  userId: string | null = null;
 
   // Form fields
   itemName = '';
@@ -126,7 +127,7 @@ export class ItemForm implements OnInit {
     if (!this.itemId || !this.userId) return;
 
     try {
-      const items = await this.inventoryService.getItems(this.userId);
+      const items = await this.inventoryService.getItems();
       const item = items.find(i => i.id === this.itemId);
 
       if (item) {
@@ -147,18 +148,16 @@ export class ItemForm implements OnInit {
         this.selectedCategory = categories.find(c => c.id === item.categoryId) || null;
 
         // Load location
-        const locations = await this.inventoryService.getLocations(this.userId);
+        const locations = await this.inventoryService.getLocations();
         this.selectedLocation = locations.find(l => l.id === item.locationId) || null;
 
         // Load image
         if (item.id) {
           const images = await this.inventoryService.getItemImages(item.id);
-          if (images.length > 0 && images[0].imagePath) {
-            // Store the path for saving
-            this.capturedImagePath = images[0].imagePath;
-            // Convert to displayable format
-            this.capturedImage = await this.imageService.getImageUrl(images[0].imagePath);
-            // Image was loaded from existing item, not changed by user
+          const primaryPath = images[0]?.imagePath ?? images[0]?.storagePath;
+          if (primaryPath) {
+            this.capturedImagePath = primaryPath;
+            this.capturedImage = await this.imageService.getImageUrl(primaryPath);
             this.imageChanged = false;
           }
         }
@@ -493,9 +492,9 @@ export class ItemForm implements OnInit {
       this.barcode = scannedBarcode;
 
       // Check if we've seen this barcode before (learn-as-you-go)
-      let mapping: any = null;
+      let mapping: BarcodeMapping | null = null;
       try {
-        mapping = await this.barcodeService.getBarcodeMapping(scannedBarcode, this.userId);
+        mapping = await this.barcodeService.getBarcodeMapping(scannedBarcode);
         console.info('[onScanBarcode] getBarcodeMapping returned:', mapping);
       } catch (mapErr) {
         console.error('[onScanBarcode] getBarcodeMapping failed:', mapErr);
@@ -524,7 +523,7 @@ export class ItemForm implements OnInit {
         // Auto-fill storage location from cached data
         if (mapping.locationId) {
           try {
-            const locations = await this.inventoryService.getLocations(this.userId);
+            const locations = await this.inventoryService.getLocations();
             this.selectedLocation = locations.find(l => l.id === mapping.locationId) || null;
           } catch (locationErr) {
             console.error('[onScanBarcode] Failed fetching location:', locationErr);
@@ -533,16 +532,17 @@ export class ItemForm implements OnInit {
 
         // Auto-fill image - only replace if barcode has cached images
         try {
-          const barcodeImages = await this.inventoryService.getImagesByBarcode(scannedBarcode, this.userId);
+          const barcodeImages = await this.inventoryService.getImagesByBarcode(scannedBarcode);
           
           // Only auto-fill image if we found images for this barcode
           if (barcodeImages.length > 1) {
             // Multiple images available - let user choose
             const imageOptions: ImageOption[] = [];
             for (const img of barcodeImages) {
-              const displayUrl = await this.imageService.getImageUrl(img.imagePath);
+              const path = img.imagePath ?? img.storagePath ?? '';
+              const displayUrl = path ? await this.imageService.getImageUrl(path) : '';
               imageOptions.push({
-                imagePath: img.imagePath,
+                imagePath: path,
                 displayUrl: displayUrl
               });
             }
@@ -563,9 +563,11 @@ export class ItemForm implements OnInit {
               }
             });
           } else if (barcodeImages.length === 1) {
-            // Single image - auto-fill directly (replace existing)
-            this.capturedImagePath = barcodeImages[0].imagePath;
-            this.capturedImage = await this.imageService.getImageUrl(barcodeImages[0].imagePath);
+            const path = barcodeImages[0].imagePath ?? barcodeImages[0].storagePath;
+            if (path) {
+              this.capturedImagePath = path;
+              this.capturedImage = await this.imageService.getImageUrl(path);
+            }
           } else if (mapping.imagePath) {
             // Use image from barcode mapping if no item images found (replace existing)
             this.capturedImagePath = mapping.imagePath;
@@ -659,13 +661,11 @@ export class ItemForm implements OnInit {
       // Get storage location name if selected
       const storageLocation = this.selectedLocation?.name || null;
 
-      // Call AI service
-      const suggestion = await this.expirationAIService.suggestExpiration(
-        this.itemName.trim(),
-        this.purchaseDate,
-        storageLocation,
-        this.userId
-      );
+      const suggestion = await this.expirationAIService.suggestExpiration({
+        itemName: this.itemName.trim(),
+        storageLocation: storageLocation ?? undefined,
+        purchaseDate: this.purchaseDate ? toLocalDateString(this.purchaseDate) : undefined,
+      });
 
       // Calculate suggested expiration date
       const suggestedDate = new Date(this.purchaseDate);
@@ -697,13 +697,10 @@ export class ItemForm implements OnInit {
           this.snackBar.open('✓ AI suggestion applied', 'Close', { duration: 3000 });
         }
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('AI suggestion error:', error);
-      this.snackBar.open(
-        error.message || 'Failed to get AI suggestion',
-        'Close',
-        { duration: 5000 }
-      );
+      const msg = error instanceof Error ? error.message : 'Failed to get AI suggestion';
+      this.snackBar.open(msg, 'Close', { duration: 5000 });
     } finally {
       this.isLoadingAI = false;
     }

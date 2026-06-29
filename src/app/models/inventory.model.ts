@@ -1,6 +1,9 @@
 export interface InventoryItem {
   id?: number;
-  userId: number;
+  // Supabase user UUID. Note: the server ignores client-provided values and
+  // always uses `auth.uid()`; this field is kept for the client-side scoping
+  // helpers (locations, shopping list, etc.) and audit logs only.
+  userId: string;
   name: string;
   categoryId: number;
   quantity: number;
@@ -32,11 +35,13 @@ export interface Category {
   name: string;
   icon?: string;
   color?: string;
+  userId?: string | null;
+  isSystem?: boolean;
 }
 
 export interface Location {
   id?: number;
-  userId: number;
+  userId: string;
   name: string; // 'Fridge', 'Freezer', 'Pantry'
   subLocation?: string; // 'Top Shelf', 'Drawer 2', etc.
 }
@@ -44,15 +49,19 @@ export interface Location {
 export interface ItemImage {
   id?: number;
   itemId: number;
+  // Path inside the Supabase Storage bucket `inventory-images`, in the form
+  // `<userId>/<scope>/<uuid>.<ext>`. Resolve to a viewable URL via
+  // ImageService.getImageUrl(). Legacy components still call this `imagePath`.
   imagePath: string;
-  imageData?: string; // Base64 encoded image data
+  storagePath?: string;
+  imageData?: string;
   isPrimary: boolean;
   createdAt?: string;
 }
 
 export interface ShoppingListItem {
   id?: number;
-  userId: number;
+  userId: string;
   name: string;
   quantity?: string;
   notes?: string;
@@ -73,7 +82,7 @@ export interface BarcodeMapping {
   barcode: string;
   itemName: string;
   categoryId: number;
-  userId: number;
+  userId: string;
   createdAt?: string;
   suggestedShelfLifeDays?: number | null;
   aiNote?: string | null;
@@ -107,6 +116,7 @@ export interface LocationBreakdown {
 
 export interface WastedItem {
   id: number;
+  userId?: string;
   name: string;
   price?: number;
   wastedDate: string;
@@ -116,14 +126,14 @@ export interface WastedItem {
 export interface InventoryBatch {
   id?: number;
   itemId?: number;
-  item_id?: number; // Database column name
+  item_id?: number;
   quantity: number;
-  expirationDate?: string; // YYYY-MM-DD format
-  expiration_date?: string; // Database column name
-  purchaseDate?: string; // YYYY-MM-DD format
-  purchase_date?: string; // Database column name
-  price?: number; // Price per unit for this batch
-  notes?: string; // Batch-specific notes
+  expirationDate?: string | null;
+  expiration_date?: string;
+  purchaseDate?: string | null;
+  purchase_date?: string;
+  price?: number | null;
+  notes?: string | null;
   createdAt?: string;
-  created_at?: string; // Database column name
+  created_at?: string;
 }

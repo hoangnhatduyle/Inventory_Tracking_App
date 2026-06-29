@@ -39,7 +39,7 @@ import { RecipeFormDialogComponent } from '../../components/recipe-manager/recip
         <button mat-icon-button (click)="onBack()" class="back-button" *ngIf="!embedded">
           <mat-icon>arrow_back</mat-icon>
         </button>
-        <h1>Recipe Manager</h1>
+        <h1>Meal Manager</h1>
         <button mat-fab color="primary" (click)="onAddRecipe()" class="fab-button">
           <mat-icon>add</mat-icon>
         </button>
@@ -47,7 +47,7 @@ import { RecipeFormDialogComponent } from '../../components/recipe-manager/recip
 
       <mat-card class="search-card">
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Search recipes...</mat-label>
+          <mat-label>Search meals...</mat-label>
           <input matInput [(ngModel)]="searchQuery" (ngModelChange)="filterRecipes()">
           <mat-icon matPrefix>search</mat-icon>
         </mat-form-field>
@@ -113,10 +113,10 @@ import { RecipeFormDialogComponent } from '../../components/recipe-manager/recip
 
         <div *ngIf="filteredRecipes.length === 0" class="empty-state">
           <mat-icon>menu_book</mat-icon>
-          <p>No recipes found</p>
-          <button mat-raised-button color="primary" (click)="onAddRecipe()">
+          <p>No meals found</p>
+          <button mat-raised-button color="primary" (click)="onAddRecipe()" class="empty-state-btn">
             <mat-icon>add</mat-icon>
-            Add Your First Recipe
+            Add Your First Meal
           </button>
         </div>
       </div>
@@ -275,6 +275,21 @@ import { RecipeFormDialogComponent } from '../../components/recipe-manager/recip
     .empty-state p {
       font-size: 16px;
       margin-bottom: 24px;
+    }
+
+    .empty-state-btn {
+      padding: 0 20px;
+      height: 40px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .empty-state-btn mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      line-height: 20px;
     }
 
     .loading-container {

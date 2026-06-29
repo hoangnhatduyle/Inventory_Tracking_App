@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, inject } from '@angular/core';
 import { RouterOutlet, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -7,10 +7,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSidenavModule, MatDrawer } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { DatabaseService } from './services/database.service';
+import { MatDialogModule } from '@angular/material/dialog';
 import { AuthService } from './services/auth.service';
 import { ConsoleLoggerService } from './services/console-logger.service';
+import { environment } from '../environments/environment';
 
 @Component({
   selector: 'app-root',
@@ -26,49 +26,52 @@ import { ConsoleLoggerService } from './services/console-logger.service';
     MatIconModule,
     MatSidenavModule,
     MatListModule,
-    MatDialogModule
+    MatDialogModule,
   ],
   templateUrl: './app.html',
-  styleUrls: ['./app.css', './styles/snackbar-styles.scss', './styles/animations.scss']
+  styleUrls: ['./app.css', './styles/snackbar-styles.scss', './styles/animations.scss'],
 })
 export class App implements OnInit {
   @ViewChild('drawer') drawer!: MatDrawer;
-  
+
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+
   title = 'Chắt Chiu';
   isAuthenticated = false;
+  isOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
 
-  constructor(
-    private db: DatabaseService,
-    private authService: AuthService,
-    private consoleLogger: ConsoleLoggerService,
-    private router: Router,
-    private dialog: MatDialog
-  ) {
-    // Initialize console logger to start capturing logs
-    console.log('🚀 App started - Console logging initialized');
-    
-    // Listen to auth state changes
-    this.authService.authState$.subscribe(authenticated => {
+  constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => (this.isOnline = true));
+      window.addEventListener('offline', () => (this.isOnline = false));
+    }
+
+    // Eagerly construct ConsoleLoggerService so it can patch console.* in dev.
+    // In production its no-op behaviour is enforced inside the service itself.
+    inject(ConsoleLoggerService);
+
+    if (!environment.production) {
+      console.log('App started');
+    }
+
+    this.authService.authState$.subscribe((authenticated) => {
       this.isAuthenticated = authenticated;
     });
   }
 
   async ngOnInit() {
-    // Initialize database
-    await this.db.initializeDatabase();
-
-    // Call isAuthenticated() to check DB and emit the true initial state to authState$
+    // No local DB to initialize anymore - persistence is the Vercel/Supabase API.
     const authenticated = await this.authService.isAuthenticated();
     if (!authenticated) {
-      await this.logout();
+      await this.authService.logout();
     } else {
-      this.router.navigate(['/dashboard']);
+      void this.router.navigate(['/dashboard']);
     }
   }
 
   async logout() {
-    // authService.logout() emits to authState$, which updates isAuthenticated via subscription
     await this.authService.logout();
-    this.router.navigate(['/login']);
+    void this.router.navigate(['/login']);
   }
 }

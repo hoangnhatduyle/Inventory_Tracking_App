@@ -1,12 +1,12 @@
 export interface WastedItem {
   id?: number;
-  userId: number;
+  userId?: string;
   itemName: string;
-  categoryId: number;
+  categoryId?: number | null;
   categoryName?: string;
   quantity: number;
   unit: string;
-  price?: number;
+  price?: number | null;
   wastedDate: string;
 }
 

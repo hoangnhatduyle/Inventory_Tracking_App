@@ -73,8 +73,8 @@ export class WasteTrackingComponent implements OnInit {
       const user = await this.authService.getCurrentUser();
       if (user) {
         [this.wastedItems, this.statistics, this.categories] = await Promise.all([
-          this.wasteTrackingService.getWastedItems(user.id!),
-          this.wasteTrackingService.getWasteStatistics(user.id!),
+          this.wasteTrackingService.getWastedItems(),
+          this.wasteTrackingService.getWasteStatistics(),
           this.inventoryService.getCategories()
         ]);
         this.applyFilters();

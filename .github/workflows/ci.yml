@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (web)
+        run: npm ci --legacy-peer-deps
+
+      - name: Install dependencies (api)
+        run: npm ci
+        working-directory: api
+
+      - name: Lint (web)
+        run: npx ng lint
+
+      - name: Typecheck (api)
+        run: npm run typecheck
+        working-directory: api
+
+      - name: Unit tests (web)
+        run: npx ng test --watch=false --browsers=ChromeHeadless
+
+      - name: Production build (web)
+        run: npx ng build --configuration production
+
+      - name: Production npm audit (web - fail on high or worse)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Production npm audit (api - fail on high or worse)
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: api

@@ -1,4 +1,9 @@
 <div class="app-container">
+  <div class="offline-banner" *ngIf="!isOnline" role="status" aria-live="polite">
+    <mat-icon>cloud_off</mat-icon>
+    <span>You're offline. Showing cached data; changes will fail until you reconnect.</span>
+  </div>
+
   <mat-toolbar color="primary" class="app-toolbar" *ngIf="isAuthenticated">
     <button mat-icon-button (click)="drawer.toggle()">
       <mat-icon>menu</mat-icon>

@@ -1,132 +1,120 @@
 import { TestBed } from '@angular/core/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
+
 import { StatisticsService } from './statistics.service';
-import { DatabaseService } from './database.service';
-import { InventoryService } from './inventory.service';
+import { ApiClient } from '../core/api-client.service';
+import { SupabaseAuthService } from '../core/supabase-auth.service';
+import { InventoryItem } from '../models/inventory.model';
+
+class MockSupabaseAuthService {
+  async getAccessToken(): Promise<string | null> {
+    return 'test-jwt';
+  }
+}
+
+class MockRouter {
+  navigate = jasmine.createSpy('navigate').and.resolveTo(true);
+}
+
+const flushMicrotasks = async () => {
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+};
+const urlEndsWith = (suffix: string) => (req: { url: string }) => req.url.endsWith(suffix);
 
 describe('StatisticsService', () => {
   let service: StatisticsService;
-  let mockDb: jasmine.SpyObj<DatabaseService>;
-  let mockInventory: jasmine.SpyObj<InventoryService>;
+  let httpMock: HttpTestingController;
 
   beforeEach(() => {
-    mockDb = jasmine.createSpyObj('DatabaseService', ['query', 'run']);
-    mockInventory = jasmine.createSpyObj('InventoryService', [
-      'getItems',
-      'getCategories',
-      'getLocations',
-      'filterItems',
-      'getAllRecipes'
-    ]);
-
     TestBed.configureTestingModule({
       providers: [
+        ApiClient,
         StatisticsService,
-        { provide: DatabaseService, useValue: mockDb },
-        { provide: InventoryService, useValue: mockInventory }
-      ]
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: SupabaseAuthService, useClass: MockSupabaseAuthService },
+        { provide: Router, useClass: MockRouter },
+      ],
     });
-
     service = TestBed.inject(StatisticsService);
+    httpMock = TestBed.inject(HttpTestingController);
   });
 
-  describe('exportInventoryData - CSV injection protection', () => {
-    it('should escape double-quotes in CSV fields', async () => {
-      mockInventory.getItems.and.returnValue(Promise.resolve([
-        {
-          id: 1,
-          name: 'Item with "quotes" inside',
-          categoryId: 1,
-          quantity: 5,
-          unit: 'pieces',
-          purchaseDate: '2026-03-01',
-          expirationDate: '2026-04-01',
-          locationId: 1,
-          price: 10,
-          notes: 'Test "note" here',
-          notificationEnabled: false,
-          notificationDaysBefore: 3
-        } as any
-      ]));
+  afterEach(() => httpMock.verify());
 
-      mockInventory.getCategories.and.returnValue(Promise.resolve([
-        { id: 1, name: 'Test Category' }
-      ]));
-
-      mockInventory.getLocations.and.returnValue(Promise.resolve([
-        { id: 1, userId: 1, name: 'Kitchen' }
-      ]));
-
-      const csv = await service.exportInventoryData(1);
-
-      // Double-quotes should be escaped as ""
-      expect(csv).toContain('""quotes""');
-      expect(csv).toContain('""note""');
+  it('hydrates the dashboard payload from /api/statistics/dashboard with all fields present', async () => {
+    const pending = service.getDashboardStatistics();
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/statistics/dashboard'));
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      data: {
+        totalItems: 12,
+        totalValue: '42.50',
+        expiringCount: 3,
+        expiredCount: 1,
+        expiringSoon: [{ id: 1, name: 'Milk' }],
+        lowStock: [{ id: 2, name: 'Bread' }],
+        byCategory: [{ category: 'Dairy', count: 4 }],
+        byLocation: [{ location: 'Fridge', count: 5 }],
+        waste30dCount: 2,
+        waste30dValue: '7.25',
+        mostWastedItems: [{ itemName: 'Lettuce', count: 3, totalValue: 5 }],
+      },
     });
-
-    it('should strip formula-injection prefixes from CSV fields', async () => {
-      mockInventory.getItems.and.returnValue(Promise.resolve([
-        {
-          id: 1,
-          name: '=HYPERLINK("http://evil.com","Click")',
-          categoryId: 1,
-          quantity: 5,
-          unit: 'pieces',
-          purchaseDate: '2026-03-01',
-          expirationDate: '2026-04-01',
-          locationId: 1,
-          price: 10,
-          notes: '+1+1',
-          notificationEnabled: false,
-          notificationDaysBefore: 3
-        } as any
-      ]));
-
-      mockInventory.getCategories.and.returnValue(Promise.resolve([]));
-      mockInventory.getLocations.and.returnValue(Promise.resolve([]));
-
-      const csv = await service.exportInventoryData(1);
-
-      // The equals sign and plus signs should be stripped
-      expect(csv).not.toContain('"=HYPERLINK');
-      expect(csv).not.toContain('"+1+1');
-    });
+    const stats = await pending;
+    expect(stats.totalItems).toBe(12);
+    expect(stats.totalValue).toBe(42.5);
+    expect(stats.expiringCount).toBe(3);
+    expect(stats.expiredCount).toBe(1);
+    expect((stats.expiringSoon as InventoryItem[])[0].name).toBe('Milk');
+    expect(stats.categoryBreakdown[0].categoryName).toBe('Dairy');
+    expect(stats.locationBreakdown[0].locationName).toBe('Fridge');
+    expect(stats.waste30dCount).toBe(2);
+    expect(stats.waste30dValue).toBe(7.25);
+    expect(stats.totalWastedValue).toBe(7.25);
   });
 
-  describe('getDashboardStatistics - sort mutation', () => {
-    it('should not mutate the original items array when sorting', async () => {
-      const originalItems = [
-        { id: 3, name: 'Item C', categoryId: 1, quantity: 1, expirationDate: '2026-03-20' } as any,
-        { id: 1, name: 'Item A', categoryId: 1, quantity: 2, expirationDate: '2026-03-15' } as any,
-        { id: 2, name: 'Item B', categoryId: 1, quantity: 3, expirationDate: '2026-03-18' } as any
-      ];
-
-      const originalOrder = JSON.stringify(originalItems.map(i => i.id));
-
-      mockInventory.getItems.and.returnValue(Promise.resolve(originalItems));
-      mockInventory.getCategories.and.returnValue(Promise.resolve([]));
-      mockInventory.getLocations.and.returnValue(Promise.resolve([]));
-
-      await service.getDashboardStatistics(1);
-
-      const currentOrder = JSON.stringify(originalItems.map(i => i.id));
-      expect(currentOrder).toBe(originalOrder);
-    });
+  it('returns a fully-populated zero-state when the server returns an empty payload', async () => {
+    const pending = service.getDashboardStatistics();
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/statistics/dashboard'));
+    req.flush({ data: {} });
+    const stats = await pending;
+    expect(stats.totalItems).toBe(0);
+    expect(stats.totalValue).toBe(0);
+    expect(stats.expiringSoon).toEqual([]);
+    expect(stats.lowStock).toEqual([]);
+    expect(stats.categoryBreakdown).toEqual([]);
+    expect(stats.locationBreakdown).toEqual([]);
+    expect(stats.wastedItems).toEqual([]);
+    expect(stats.waste30dCount).toBe(0);
+    expect(stats.waste30dValue).toBe(0);
   });
 
-  describe('getAllRecipes - null ingredients guard', () => {
-    it('should handle recipes with null ingredients without throwing', async () => {
-      mockDb.query.and.returnValue(Promise.resolve({
-        values: [
-          { id: 1, name: 'Recipe 1', ingredients: 'flour,sugar,eggs' },
-          { id: 2, name: 'Recipe 2', ingredients: null },
-          { id: 3, name: 'Recipe 3', ingredients: 'milk,bread' }
-        ]
-      }));
+  it('buildInventoryCsv escapes formula-injection prefixes', () => {
+    const items = [
+      {
+        id: 1,
+        userId: 'u',
+        name: '=cmd',
+        quantity: 1,
+        unit: '',
+        categoryId: 1,
+        locationId: 1,
+        expirationDate: '2026-06-01',
+        notes: 'safe',
+      } as unknown as InventoryItem,
+    ];
+    const csv = service.buildInventoryCsv(items);
+    expect(csv).toContain('"\'=cmd"');
+  });
 
-      const result = await service.getAllRecipes();
-
-      expect(result.length).toBe(3);
-      expect(result[1].ingredients).toBeNull();
-    });
+  it('getRecipeSuggestions returns an empty array (v1 stub) without touching the network', async () => {
+    const out = await service.getRecipeSuggestions();
+    expect(out).toEqual([]);
+    httpMock.expectNone(() => true);
   });
 });

@@ -1,16 +1,22 @@
+import { InventoryItem } from './inventory.model';
+
+// DashboardStatistics is the response shape from /api/statistics/dashboard
+// after StatisticsService.getDashboardStatistics() hydrates the raw payload.
+// All fields are required so templates can bind without null checks.
 export interface DashboardStatistics {
   totalItems: number;
   totalValue: number;
-  expiringSoon: number;  // Alias for expiringIn3Days
-  expiringIn3Days?: number;
-  expiringInWeek?: number;
-  expired: number;  // Alias for expiredItems
-  expiredItems?: number;
+  expiringCount: number;
+  expiringSoon: InventoryItem[];
+  expiredCount: number;
+  lowStock: InventoryItem[];
   categoryBreakdown: CategoryStats[];
   locationBreakdown: LocationStats[];
-  mostWastedItems: WastedItemStats[];
-  wastedItems: WastedItemStats[];  // Alias for mostWastedItems
-  recentItems: any[];
+  wastedItems: WastedItemStats[];
+  totalWastedValue: number;
+  totalSpentValue: number;
+  waste30dCount: number;
+  waste30dValue: number;
 }
 
 export interface CategoryStats {
@@ -34,12 +40,12 @@ export interface WastedItemStats {
 export interface Recipe {
   id?: number;
   name: string;
-  ingredients: string; // Comma-separated string from database
-  ingredientsList?: string[]; // Parsed array for matching logic
+  ingredients: string;
+  ingredientsList?: string[];
   matchingItems?: string[];
   matchCount?: number;
-  prepTime: string;
-  servings: number;
+  prepTime?: string;
+  servings?: number;
   instructions?: string;
   createdAt?: string;
   updatedAt?: string;
