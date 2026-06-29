@@ -47,13 +47,14 @@ export class MealPlanComponent implements OnInit {
   calendarMode: 'weekly' | 'monthly' = 'weekly';
   loading = false;
 
-  // Weekly
-  currentWeekStart!: Date;
+  // Weekly. Initialized at declaration so `periodLabel` is never read before
+  // ngOnInit sets them (the template renders during ngOnInit's first await).
+  currentWeekStart: Date = this.getWeekStart(new Date());
   weekDays: WeekDay[] = [];
   weeklyMeals: MealPlan[] = [];
 
   // Monthly
-  currentMonthYear!: Date;
+  currentMonthYear: Date = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   monthDays: (WeekDay | null)[][] = [];
   monthlyMeals: MealPlan[] = [];
 
