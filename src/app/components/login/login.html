@@ -15,16 +15,19 @@
         <p class="form-subtitle">Enter your Username & Password to login</p>
 
         <div class="form-content">
-          <!-- Username -->
+          <!-- Email -->
           <div class="form-group">
-            <label class="form-label">Username</label>
+            <label class="form-label" for="login-email">Email</label>
             <div class="input-wrapper">
-              <mat-icon class="input-icon">person</mat-icon>
+              <mat-icon class="input-icon">email</mat-icon>
               <input
-                type="text"
+                id="login-email"
+                name="email"
+                type="email"
+                autocomplete="email"
                 class="form-input"
-                [(ngModel)]="loginUsername"
-                placeholder="Enter your username"
+                [(ngModel)]="loginEmail"
+                placeholder="Enter your email"
                 (keyup.enter)="onLogin()"
               />
             </div>
@@ -32,11 +35,14 @@
 
           <!-- Password -->
           <div class="form-group">
-            <label class="form-label">Password</label>
+            <label class="form-label" for="login-password">Password</label>
             <div class="input-wrapper">
               <mat-icon class="input-icon">lock</mat-icon>
               <input
+                id="login-password"
+                name="password"
                 type="password"
+                autocomplete="current-password"
                 class="form-input"
                 [(ngModel)]="loginPassword"
                 placeholder="Enter your password"
@@ -72,29 +78,18 @@
         <p class="form-subtitle">Please fill in the form to continue</p>
 
         <div class="form-content">
-          <!-- Username -->
-          <div class="form-group">
-            <label class="form-label">Username</label>
-            <div class="input-wrapper">
-              <mat-icon class="input-icon">person</mat-icon>
-              <input 
-                type="text" 
-                class="form-input" 
-                [(ngModel)]="registerUsername" 
-                placeholder="Choose username"
-              />
-            </div>
-          </div>
-
           <!-- Email -->
           <div class="form-group">
-            <label class="form-label">Email (Optional)</label>
+            <label class="form-label" for="register-email">Email</label>
             <div class="input-wrapper">
               <mat-icon class="input-icon">email</mat-icon>
-              <input 
-                type="email" 
-                class="form-input" 
-                [(ngModel)]="registerEmail" 
+              <input
+                id="register-email"
+                name="email"
+                type="email"
+                autocomplete="email"
+                class="form-input"
+                [(ngModel)]="registerEmail"
                 placeholder="Enter your email"
               />
             </div>
@@ -102,25 +97,31 @@
 
           <!-- Password -->
           <div class="form-group">
-            <label class="form-label">Password</label>
+            <label class="form-label" for="register-password">Password</label>
             <div class="input-wrapper">
               <mat-icon class="input-icon">lock</mat-icon>
-              <input 
-                type="password" 
-                class="form-input" 
-                [(ngModel)]="registerPassword" 
-                placeholder="Choose password"
+              <input
+                id="register-password"
+                name="new-password"
+                type="password"
+                autocomplete="new-password"
+                class="form-input"
+                [(ngModel)]="registerPassword"
+                placeholder="Choose password (min 12 characters)"
               />
             </div>
           </div>
 
           <!-- Confirm Password -->
           <div class="form-group">
-            <label class="form-label">Confirm Password</label>
+            <label class="form-label" for="register-confirm-password">Confirm Password</label>
             <div class="input-wrapper">
               <mat-icon class="input-icon">lock_outline</mat-icon>
               <input
+                id="register-confirm-password"
+                name="confirm-password"
                 type="password"
+                autocomplete="new-password"
                 class="form-input"
                 [(ngModel)]="registerConfirmPassword"
                 placeholder="Confirm password"

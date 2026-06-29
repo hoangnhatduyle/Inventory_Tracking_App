@@ -47,14 +47,6 @@ export class Login implements OnInit {
   isLoading = false;
   viewMode: ViewMode = 'login';
 
-  // Mirrors so the existing HTML templates that still reference `loginUsername`
-  // / `registerUsername` keep compiling during the migration. Both setters
-  // forward to the canonical email fields.
-  get loginUsername(): string { return this.loginEmail; }
-  set loginUsername(v: string) { this.loginEmail = v; }
-  get registerUsername(): string { return this.registerEmail; }
-  set registerUsername(v: string) { this.registerEmail = v; }
-
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((params) => {
       if (params.get('reason') === 'session-expired') {
@@ -130,9 +122,15 @@ export class Login implements OnInit {
     }
   }
 
-  switchToRegister() { this.viewMode = 'register'; }
-  switchToLogin() { this.viewMode = 'login'; }
-  switchToReset() { this.viewMode = 'reset'; }
+  switchToRegister() {
+    this.viewMode = 'register';
+  }
+  switchToLogin() {
+    this.viewMode = 'login';
+  }
+  switchToReset() {
+    this.viewMode = 'reset';
+  }
 
   private showMessage(message: string) {
     this.snackBar.open(message, 'Close', {
