@@ -267,14 +267,18 @@ export class InventoryService {
     return null;
   }
 
+  // An item is "running low" when its remaining percentage (current / initial)
+  // is at or below its threshold. `lowStockThreshold` is treated as a percentage
+  // (default 20 = 20% remaining), matching the dashboard's critical/warning/good
+  // bands and the original app's behavior.
   async getLowStockItems(): Promise<InventoryItem[]> {
     const items = await this.getItems();
-    return items.filter(
-      (i) =>
-        i.currentQuantity != null &&
-        i.lowStockThreshold != null &&
-        i.currentQuantity <= i.lowStockThreshold,
-    );
+    return items.filter((i) => {
+      if (!i.initialQuantity || i.currentQuantity == null) return false;
+      const percentage = (i.currentQuantity / i.initialQuantity) * 100;
+      const threshold = i.lowStockThreshold ?? 20;
+      return percentage > 0 && percentage <= threshold;
+    });
   }
 
   async getBatches(itemId: number): Promise<InventoryBatch[]> {
