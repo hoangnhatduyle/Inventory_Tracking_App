@@ -1,44 +1,51 @@
 // Generates favicons + PWA icons from the source app artwork using sharp.
 // Run: node scripts/generate-icons.mjs
 //
-// The source (chat-chiu-logo.png) is presentation artwork: a rounded teal card
-// (white border) with the chef-pig, sitting on a gray radial-gradient backdrop
-// with a glow/shadow. The gray backdrop is NOT part of the icon, so we crop to
-// the teal field (inside the white border) and use that as the single base art:
+// The source (chac-chiu-icon.png, 1254x1254) is a finished app-icon design: a
+// rounded card with a teal->orange vertical gradient holding the chef-pig,
+// framed by a 40px white border on a black backdrop. The white border and black
+// backdrop are NOT part of the art, so we crop to the gradient card (inside the
+// border) and use that as the single base art:
 //   - Home-screen launcher icons (maskable + apple-touch): full-bleed square.
-//     Launchers apply their own rounded mask, so the teal bleeds to every edge.
+//     Launchers apply their own rounded mask, which clips the card's rounded
+//     corners, so the gradient bleeds to every visible edge.
 //   - Browser favicons, PWA "any" icons, and the in-app nav logo: same art with
 //     our own rounded-corner alpha mask so corners are transparent.
 //
-// CROP is a centered square inside the white border (measured: card center is
-// (512,500), teal half-extent ~327px). It keeps the full hat + ears + a teal
-// margin, matching sibling apps, while excluding the border and gray backdrop.
+// CROP is the gradient card's bounding box: a 40px white border surrounds the
+// card on all sides (measured at the edge midpoints), so we inset 40px from
+// every edge. The card center is (627,627); this keeps the full hat + ears.
 import sharp from 'sharp';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
-const SRC = path.join(root, 'public', 'chat-chiu-logo.png');
+const SRC = path.join(root, 'public', 'chac-chiu-icon.png');
 const ICONS_DIR = path.join(root, 'public', 'icons');
 const PUBLIC_DIR = path.join(root, 'public');
 const IMAGES_DIR = path.join(root, 'public', 'images');
 
-const CROP = { left: 185, top: 173, width: 654, height: 654 };
+// CARD_CROP: the gradient card's full bounding box (40px white border inset on
+// every edge). Used for rounded icons — our own alpha mask clips the corners,
+// so the card's rounded corners + white arc never show, keeping max framing.
+const CARD_CROP = { left: 40, top: 40, width: 1174, height: 1174 };
+// BLEED_CROP: a tighter centered crop (~100px inset) whose corners land in pure
+// gradient, past the white border's inward-curving arc. Used for full-bleed /
+// maskable launcher icons, which have NO built-in rounding — the OS applies its
+// own mask shape, so every corner must already be clean gradient (no white arc).
+const BLEED_CROP = { left: 102, top: 102, width: 1050, height: 1050 };
 const CORNER_RATIO = 0.22; // rounded-corner radius as a fraction of icon size
-// The source has a transparent backdrop; the crop's corners fall in it. Flatten
-// onto the card's teal so interiors are fully opaque (launcher icons must be).
-const TEAL = { r: 70, g: 154, b: 147 };
 
 fs.mkdirSync(ICONS_DIR, { recursive: true });
 
-// Base art: the teal field (transparent backdrop cropped away), square.
-const fullBleed = await sharp(SRC).extract(CROP).png().toBuffer();
+// Base art: the gradient card. Two crops — see CARD_CROP / BLEED_CROP above.
+const cardArt = await sharp(SRC).extract(CARD_CROP).png().toBuffer();
+const bleedArt = await sharp(SRC).extract(BLEED_CROP).png().toBuffer();
 
-// Full-bleed square at `size` (opaque, teal to every edge) — launcher icons.
+// Full-bleed square at `size` (opaque, gradient to every edge) — launcher icons.
 async function writeFullBleed(file, size) {
-  const buf = await sharp(fullBleed)
+  const buf = await sharp(bleedArt)
     .resize(size, size, { fit: 'cover' })
-    .flatten({ background: TEAL })
     .png()
     .toBuffer();
   fs.writeFileSync(file, buf);
@@ -47,9 +54,8 @@ async function writeFullBleed(file, size) {
 
 // Rounded-corner square at `size` (transparent corners) — favicons / "any" / nav.
 async function writeRounded(file, size) {
-  const base = await sharp(fullBleed)
+  const base = await sharp(cardArt)
     .resize(size, size, { fit: 'cover' })
-    .flatten({ background: TEAL })
     .png()
     .toBuffer();
   const radius = Math.round(size * CORNER_RATIO);
