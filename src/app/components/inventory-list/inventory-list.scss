@@ -704,6 +704,30 @@
             }
         }
     }
+
+    // Stack the title above the action buttons; let the two buttons share the
+    // row equally so "Scan Receipt" no longer overflows the card on phones.
+    .inventory-header .header-top {
+        flex-direction: column;
+        align-items: stretch;
+
+        h1 {
+            font-size: 1.6rem;
+            text-align: center;
+        }
+
+        .header-actions {
+            width: 100%;
+
+            .add-button,
+            .receipt-button {
+                flex: 1 1 0;
+                min-width: 0;
+                justify-content: center;
+                padding: 0.75rem 0.5rem;
+            }
+        }
+    }
 }
 
 // Tablet landscape optimization

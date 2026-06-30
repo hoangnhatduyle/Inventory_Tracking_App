@@ -108,9 +108,9 @@ describe('InventoryService', () => {
 
   it('getLowStockItems returns only items below their lowStockThreshold', async () => {
     const items: InventoryItem[] = [
-      sampleItem({ id: 1, currentQuantity: 0.2, lowStockThreshold: 1 }),
-      sampleItem({ id: 2, currentQuantity: 5, lowStockThreshold: 1 }),
-      sampleItem({ id: 3, currentQuantity: undefined, lowStockThreshold: 1 }),
+      sampleItem({ id: 1, initialQuantity: 100, currentQuantity: 0.2, lowStockThreshold: 1 }),
+      sampleItem({ id: 2, initialQuantity: 100, currentQuantity: 5, lowStockThreshold: 1 }),
+      sampleItem({ id: 3, initialQuantity: 100, currentQuantity: undefined, lowStockThreshold: 1 }),
     ];
     const pending = service.getLowStockItems();
     await flushMicrotasks();
