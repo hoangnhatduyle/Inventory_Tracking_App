@@ -34,10 +34,9 @@
 }
 
 .logo-icon {
-  color: #4caf50;
-  font-size: 1.75rem;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  object-fit: contain;
 }
 
 .brand-name {
@@ -227,8 +226,7 @@
   }
 
   .logo-icon {
-    font-size: 1.5rem;
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 2rem;
+    height: 2rem;
   }
 }
