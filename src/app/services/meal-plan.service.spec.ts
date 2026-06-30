@@ -65,6 +65,24 @@ describe('MealPlanService', () => {
     await pending;
   });
 
+  it('getSummary without a date range fetches all meal plans', async () => {
+    const pending = service.getSummary();
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/meal-plans'));
+    expect(req.request.params.keys()).toEqual([]);
+    req.flush({
+      data: [
+        plan({ id: 1, planDate: '2026-05-18', mealType: 'breakfast', mealName: 'Spring rolls' }),
+        plan({ id: 2, planDate: '2026-06-19', mealType: 'lunch', mealName: 'Pork rice' }),
+      ],
+    });
+    const summary = await pending;
+    expect(summary.totalMeals).toBe(2);
+    expect(summary.monthlyBreakdown.length).toBe(2);
+    expect(summary.monthlyBreakdown[0].month).toBe('2026-05');
+    expect(summary.monthlyBreakdown[1].month).toBe('2026-06');
+  });
+
   it('getSummary aggregates counts, favorites, most-frequent meals', async () => {
     const pending = service.getSummary('2026-06-01', '2026-06-03');
     await flushMicrotasks();

@@ -70,8 +70,9 @@ export class MealPlanDialogComponent implements OnInit {
     }
   }
 
-  onMealNameChange(value: string): void {
-    const query = value.toLowerCase();
+  onMealNameChange(value: unknown): void {
+    const text = typeof value === 'string' ? value : '';
+    const query = text.toLowerCase();
     this.filteredOptions = this.data.recipeOptions.filter(
       opt => opt.label.toLowerCase().includes(query)
     );
@@ -79,7 +80,9 @@ export class MealPlanDialogComponent implements OnInit {
     this.formData.recipeId = null;
   }
 
-  onOptionSelected(option: MealOption): void {
+  onOptionSelected(label: string): void {
+    const option = this.data.recipeOptions.find(opt => opt.label === label);
+    if (!option) return;
     this.formData.mealName = option.label;
     this.formData.recipeId = option.recipeId;
   }

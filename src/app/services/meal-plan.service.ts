@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { ApiClient, ApiClientError } from '../core/api-client.service';
 import { MealPlan, MealPlanSummary, MealType } from '../models/meal-plan.model';
+import { parseLocalDate, toLocalDateString, todayLocalDateString } from '../utils/date.utils';
 
 export type { MealPlan, MealPlanSummary, MealType };
 
@@ -45,10 +46,24 @@ export class MealPlanService {
   }
 
   async getSummary(from?: string, to?: string): Promise<MealPlanSummary> {
-    const today = new Date();
-    const startStr = from ?? new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-    const endStr = to ?? new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().slice(0, 10);
-    const plans = await this.getMealPlansInRange(startStr, endStr);
+    const todayStr = todayLocalDateString();
+    let plans: MealPlan[];
+    let rangeStart: string;
+    let rangeEnd: string;
+
+    if (from && to) {
+      rangeStart = from;
+      rangeEnd = to;
+      plans = await this.getMealPlansInRange(from, to);
+    } else {
+      plans = await this.api.get<MealPlan[]>('/api/meal-plans');
+      const planDates = plans.map((p) => p.planDate).filter(Boolean);
+      rangeStart = planDates.length
+        ? planDates.reduce((min, d) => (d < min ? d : min))
+        : todayStr;
+      rangeEnd = todayStr;
+    }
+
     const counts: { breakfast: number; lunch: number; dinner: number } = {
       breakfast: 0,
       lunch: 0,
@@ -63,7 +78,9 @@ export class MealPlanService {
     }
     const days = Math.max(
       1,
-      Math.floor((new Date(endStr).getTime() - new Date(startStr).getTime()) / 86400000) + 1,
+      Math.floor(
+        (parseLocalDate(rangeEnd).getTime() - parseLocalDate(rangeStart).getTime()) / 86400000,
+      ) + 1,
     );
     const totalSlots = days * 3;
     const mostFrequentMeals = Array.from(nameCounts.entries())
@@ -75,11 +92,13 @@ export class MealPlanService {
       const k = (p.planDate ?? '').slice(0, 7);
       monthlyKey.set(k, (monthlyKey.get(k) ?? 0) + 1);
     }
-    const monthlyBreakdown = Array.from(monthlyKey.entries()).map(([month, count]) => ({
-      month,
-      count,
-      percentage: plans.length ? (count / plans.length) * 100 : 0,
-    }));
+    const monthlyBreakdown = Array.from(monthlyKey.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, count]) => ({
+        month,
+        count,
+        percentage: plans.length ? (count / plans.length) * 100 : 0,
+      }));
     return {
       totalSlots,
       filledSlots: plans.length,
@@ -99,22 +118,35 @@ export class MealPlanService {
     };
   }
 
+  private getWeekStartMonday(date: Date): Date {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
   private thisWeekCount(plans: MealPlan[]): number {
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay());
+    const weekStart = this.getWeekStartMonday(new Date());
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
-    const ws = weekStart.toISOString().slice(0, 10);
-    const we = weekEnd.toISOString().slice(0, 10);
+    const ws = toLocalDateString(weekStart);
+    const we = toLocalDateString(weekEnd);
     return plans.filter((p) => p.planDate >= ws && p.planDate <= we).length;
   }
 
   private currentStreak(plans: MealPlan[]): number {
     const dates = new Set(plans.map((p) => p.planDate));
     let streak = 0;
-    const d = new Date();
-    while (dates.has(d.toISOString().slice(0, 10))) {
+    const d = parseLocalDate(todayLocalDateString());
+
+    // If nothing logged today yet, count backward from yesterday.
+    if (!dates.has(toLocalDateString(d))) {
+      d.setDate(d.getDate() - 1);
+    }
+
+    while (dates.has(toLocalDateString(d))) {
       streak += 1;
       d.setDate(d.getDate() - 1);
     }
@@ -133,17 +165,16 @@ export class MealPlanService {
   }
 
   async getMealsByWeek(weekStart: string): Promise<MealPlan[]> {
-    const start = new Date(weekStart);
+    const start = parseLocalDate(weekStart);
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
-    return this.getMealPlansInRange(weekStart, end.toISOString().slice(0, 10));
+    return this.getMealPlansInRange(weekStart, toLocalDateString(end));
   }
 
   async getMealsByMonth(year: number, month: number): Promise<MealPlan[]> {
-    const startDate = new Date(year, month, 1);
-    const startStr = startDate.toISOString().slice(0, 10);
-    const end = new Date(year, month + 1, 0);
-    return this.getMealPlansInRange(startStr, end.toISOString().slice(0, 10));
+    const startStr = toLocalDateString(new Date(year, month, 1));
+    const endStr = toLocalDateString(new Date(year, month + 1, 0));
+    return this.getMealPlansInRange(startStr, endStr);
   }
 
   async toggleFavorite(plan: MealPlan): Promise<boolean> {

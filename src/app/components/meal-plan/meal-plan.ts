@@ -98,7 +98,7 @@ export class MealPlanComponent implements OnInit {
   // ---- View control ----
 
   async onViewToggle(): Promise<void> {
-    if (this.activeView === 'summary' && !this.summary) {
+    if (this.activeView === 'summary') {
       await this.loadSummary();
     }
   }
@@ -287,6 +287,7 @@ export class MealPlanComponent implements OnInit {
       }
       await this.loadWeeklyMeals();
       if (this.calendarMode === 'monthly') await this.loadMonthlyMeals();
+      if (this.activeView === 'summary') await this.loadSummary();
     });
   }
 
@@ -329,10 +330,7 @@ export class MealPlanComponent implements OnInit {
     if (ok) {
       this.weeklyMeals = this.weeklyMeals.filter((m) => m.id !== entry.id);
       this.monthlyMeals = this.monthlyMeals.filter((m) => m.id !== entry.id);
-      if (this.summary) {
-        this.summary.favoriteMeals = this.summary.favoriteMeals.filter((m) => m.id !== entry.id);
-        this.summary.recentMeals = this.summary.recentMeals.filter((m) => m.id !== entry.id);
-      }
+      if (this.activeView === 'summary') await this.loadSummary();
     } else {
       this.snackBar.open('Failed to delete meal', 'Close', { duration: 3000 });
     }

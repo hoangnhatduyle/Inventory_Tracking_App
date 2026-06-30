@@ -19,7 +19,7 @@
         placeholder="Type a meal or pick from recipes…">
       <mat-icon matPrefix>restaurant</mat-icon>
       <mat-autocomplete #recipeAuto (optionSelected)="onOptionSelected($event.option.value)">
-        <mat-option *ngFor="let opt of filteredOptions" [value]="opt">
+        <mat-option *ngFor="let opt of filteredOptions" [value]="opt.label">
           <mat-icon style="font-size:1rem;vertical-align:middle;margin-right:4px">menu_book</mat-icon>
           {{ opt.label }}
         </mat-option>
