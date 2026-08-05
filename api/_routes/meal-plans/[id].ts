@@ -29,6 +29,21 @@ export default authedHandler(async ({ client }, req) => {
       throw new ApiError('INTERNAL', 'Failed to update meal plan', error);
     }
     if (!data) throw new ApiError('NOT_FOUND', 'Meal plan not found');
+
+    // Favorite status belongs to the meal, not the calendar slot: keep every
+    // other plan entry for the same recipe (or free-text name) in sync so the
+    // favorites list stays a single, deduplicated entry per meal.
+    if (body.isFavorite !== undefined) {
+      let siblingQuery = client
+        .from('meal_plans')
+        .update({ is_favorite: body.isFavorite })
+        .neq('id', id);
+      siblingQuery = data.recipe_id
+        ? siblingQuery.eq('recipe_id', data.recipe_id)
+        : siblingQuery.ilike('meal_name', data.meal_name);
+      await siblingQuery;
+    }
+
     return toCamel(data);
   }
 

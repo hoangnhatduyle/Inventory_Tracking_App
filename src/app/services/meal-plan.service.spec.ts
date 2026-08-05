@@ -89,7 +89,13 @@ describe('MealPlanService', () => {
     const req = httpMock.expectOne(urlEndsWith('/api/meal-plans'));
     req.flush({
       data: [
-        plan({ id: 1, planDate: '2026-06-01', mealType: 'breakfast', mealName: 'Oatmeal', isFavorite: true }),
+        plan({
+          id: 1,
+          planDate: '2026-06-01',
+          mealType: 'breakfast',
+          mealName: 'Oatmeal',
+          isFavorite: true,
+        }),
         plan({ id: 2, planDate: '2026-06-01', mealType: 'lunch', mealName: 'Salad' }),
         plan({ id: 3, planDate: '2026-06-02', mealType: 'breakfast', mealName: 'Oatmeal' }),
       ],
@@ -106,6 +112,54 @@ describe('MealPlanService', () => {
     expect(summary.totalSlots).toBe(9);
     expect(summary.filledSlots).toBe(3);
     expect(summary.emptySlots).toBe(6);
+  });
+
+  it('getSummary collapses one favorite meal planned on multiple days into a single entry', async () => {
+    const pending = service.getSummary('2026-07-14', '2026-07-16');
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/meal-plans'));
+    req.flush({
+      data: [
+        plan({
+          id: 1,
+          planDate: '2026-07-14',
+          mealType: 'dinner',
+          mealName: 'Gà chiên nước mắm',
+          isFavorite: true,
+        }),
+        plan({
+          id: 2,
+          planDate: '2026-07-15',
+          mealType: 'dinner',
+          mealName: 'Gà chiên nước mắm',
+          isFavorite: true,
+        }),
+        plan({
+          id: 3,
+          planDate: '2026-07-16',
+          mealType: 'dinner',
+          mealName: 'Gà chiên nước mắm',
+          isFavorite: true,
+        }),
+      ],
+    });
+    const summary = await pending;
+    expect(summary.favoriteMeals.length).toBe(1);
+    expect(summary.favoriteMeals[0].planDate).toBe('2026-07-16');
+  });
+
+  it('getSummary keeps distinct meals as separate favorites', async () => {
+    const pending = service.getSummary('2026-07-14', '2026-07-16');
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/meal-plans'));
+    req.flush({
+      data: [
+        plan({ id: 1, planDate: '2026-07-14', mealName: 'Phở', isFavorite: true }),
+        plan({ id: 2, planDate: '2026-07-15', mealName: 'Bún chả', isFavorite: true }),
+      ],
+    });
+    const summary = await pending;
+    expect(summary.favoriteMeals.length).toBe(2);
   });
 
   it('toggleFavorite PATCHes the plan with flipped isFavorite', async () => {

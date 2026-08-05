@@ -31,7 +31,25 @@ export default authedHandler(async ({ user, client }, req) => {
   // (migration 0001) returns 23505, which we surface as a CONFLICT. The UI
   // can then prompt the user to overwrite (PATCH on the existing id).
   const body = parseBody(req, mealPlanCreate);
-  const row = toSnake({ ...body, userId: user.id });
+
+  // Favorite status belongs to the meal, not the calendar slot: if this
+  // recipe (or free-text name) is already favorited elsewhere, the new plan
+  // inherits it instead of starting unfavorited again.
+  let isFavorite = body.isFavorite ?? false;
+  if (!isFavorite) {
+    let favoriteQuery = client
+      .from('meal_plans')
+      .select('id')
+      .eq('is_favorite', true)
+      .limit(1);
+    favoriteQuery = body.recipeId
+      ? favoriteQuery.eq('recipe_id', body.recipeId)
+      : favoriteQuery.ilike('meal_name', body.mealName);
+    const { data: existingFavorite } = await favoriteQuery.maybeSingle();
+    if (existingFavorite) isFavorite = true;
+  }
+
+  const row = toSnake({ ...body, userId: user.id, isFavorite });
 
   const insert = await client.from('meal_plans').insert(row).select('*').single();
   if (insert.error) {

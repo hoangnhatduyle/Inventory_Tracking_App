@@ -58,9 +58,7 @@ export class MealPlanService {
     } else {
       plans = await this.api.get<MealPlan[]>('/api/meal-plans');
       const planDates = plans.map((p) => p.planDate).filter(Boolean);
-      rangeStart = planDates.length
-        ? planDates.reduce((min, d) => (d < min ? d : min))
-        : todayStr;
+      rangeStart = planDates.length ? planDates.reduce((min, d) => (d < min ? d : min)) : todayStr;
       rangeEnd = todayStr;
     }
 
@@ -70,12 +68,26 @@ export class MealPlanService {
       dinner: 0,
     };
     const nameCounts = new Map<string, number>();
-    const favorites: MealPlan[] = [];
+    // Favorite status belongs to the meal (recipe, or free-text name), not the
+    // calendar slot: the same meal planned on multiple days must collapse to
+    // one favorites entry rather than one per occurrence. Keep the most
+    // recent occurrence as the representative row.
+    const favoritesByIdentity = new Map<string, MealPlan>();
     for (const p of plans) {
       counts[p.mealType] = (counts[p.mealType] ?? 0) + 1;
       nameCounts.set(p.mealName, (nameCounts.get(p.mealName) ?? 0) + 1);
-      if (p.isFavorite) favorites.push(p);
+      if (p.isFavorite) {
+        const identity =
+          p.recipeId != null ? `r:${p.recipeId}` : `n:${p.mealName.trim().toLowerCase()}`;
+        const existing = favoritesByIdentity.get(identity);
+        if (!existing || p.planDate > existing.planDate) {
+          favoritesByIdentity.set(identity, p);
+        }
+      }
     }
+    const favorites = Array.from(favoritesByIdentity.values()).sort((a, b) =>
+      a.planDate < b.planDate ? 1 : -1,
+    );
     const days = Math.max(
       1,
       Math.floor(
