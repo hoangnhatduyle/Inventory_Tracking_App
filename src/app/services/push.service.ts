@@ -108,11 +108,26 @@ export class PushService {
       this.registration = await navigator.serviceWorker.register('/sw-push.js', {
         scope: '/sw-push/',
       });
+      await this.waitForActivation(this.registration);
       return this.registration;
     } catch (err) {
       console.error('[PushService] service worker registration failed', err);
       return null;
     }
+  }
+
+  // pushManager.subscribe() requires an active worker on this exact
+  // registration; navigator.serviceWorker.ready waits for the page's
+  // controller instead, which is ngsw-worker.js (scope '/'), not this one.
+  private async waitForActivation(registration: ServiceWorkerRegistration): Promise<void> {
+    if (registration.active) return;
+    const worker = registration.installing ?? registration.waiting;
+    if (!worker) return;
+    await new Promise<void>((resolve) => {
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'activated') resolve();
+      });
+    });
   }
 
   private urlBase64ToUint8Array(base64String: string): Uint8Array {
