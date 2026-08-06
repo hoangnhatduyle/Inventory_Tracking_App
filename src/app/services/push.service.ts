@@ -41,9 +41,7 @@ export class PushService {
     if (Notification.permission === 'denied') return false;
 
     const perm =
-      Notification.permission === 'granted'
-        ? 'granted'
-        : await Notification.requestPermission();
+      Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
     if (perm !== 'granted') return false;
 
     const reg = await this.ensureRegistration(true);
@@ -81,9 +79,7 @@ export class PushService {
     const sub = await reg.pushManager.getSubscription();
     if (!sub) return;
     try {
-      await this.api.delete(
-        `/api/push/subscribe?endpoint=${encodeURIComponent(sub.endpoint)}`,
-      );
+      await this.api.delete(`/api/push/subscribe?endpoint=${encodeURIComponent(sub.endpoint)}`);
     } catch {
       // Best effort - still remove the browser subscription locally.
     }
@@ -97,7 +93,13 @@ export class PushService {
   private async ensureRegistration(register: boolean): Promise<ServiceWorkerRegistration | null> {
     if (this.registration) return this.registration;
     try {
-      const existing = await navigator.serviceWorker.getRegistration('/sw-push/');
+      // getRegistration() resolves by longest-prefix scope match, so passing
+      // '/sw-push/' would incorrectly return the root-scoped ngsw-worker.js
+      // registration (scope '/') when this scope hasn't been registered yet.
+      // Compare scopes exactly instead.
+      const pushScope = new URL('/sw-push/', window.location.origin).href;
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      const existing = registrations.find((r) => r.scope === pushScope);
       if (existing) {
         this.registration = existing;
         return existing;
@@ -106,7 +108,6 @@ export class PushService {
       this.registration = await navigator.serviceWorker.register('/sw-push.js', {
         scope: '/sw-push/',
       });
-      await navigator.serviceWorker.ready;
       return this.registration;
     } catch (err) {
       console.error('[PushService] service worker registration failed', err);
