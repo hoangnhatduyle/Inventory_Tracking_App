@@ -8,6 +8,6 @@ export const environment = {
   apiBaseUrl: '',
   sentryDsn: '',
   environmentName: 'production',
-  vapidPublicKey: 'BDLsPLjHHGs5POJHinnyL_eyG8obb6NDDdDMa7i4BTXwYX_wZnvE8suUzwfgT9ZpVYqJenMhMQBqcZimhHSJObo',
+  vapidPublicKey: 'BPslm83A3u1Z5Dmqe0ZKam-pwWtXlTLcTrLYVA-qr4UtvA2Bpdn1KcPPgPBX2gzcvoBqfwvNrRKd2eO9nqbXgLY',
 };
 
