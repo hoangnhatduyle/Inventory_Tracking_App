@@ -392,33 +392,6 @@ mat-divider {
   }
 }
 
-// Dark mode support
-@media (prefers-color-scheme: dark) {
-  .settings-header .subtitle,
-  .panel-content .helper-text,
-  .account-info .info-row div strong,
-  .notification-setting .setting-info div p,
-  .data-action .action-info div p,
-  .empty-state,
-  .empty-state .empty-hint,
-  .app-info .info-row div p {
-    color: rgba(255, 255, 255, 0.7);
-  }
-  
-  .account-info .info-row,
-  .locations-list .location-item:hover {
-    background: rgba(255, 255, 255, 0.05);
-  }
-  
-  .locations-list .location-item {
-    border-color: rgba(255, 255, 255, 0.12);
-  }
-  
-  .empty-state mat-icon {
-    color: rgba(255, 255, 255, 0.3);
-  }
-}
-
 // Tablet landscape optimization (Fire Max 11)
 @media (min-width: 768px) and (orientation: landscape) {
   .settings-container {
@@ -606,16 +579,3 @@ mat-divider {
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  .item-list .list-item {
-    border-color: rgba(255, 255, 255, 0.12);
-  }
-
-  .item-list .list-item:hover {
-    background: rgba(255, 255, 255, 0.05);
-  }
-
-  .item-list .list-item .item-content .item-text .item-name {
-    color: rgba(255, 255, 255, 0.87);
-  }
-}

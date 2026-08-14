@@ -32,6 +32,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { MatTabsModule } from '@angular/material/tabs';
 
+import { SwUpdate } from '@angular/service-worker';
+
 import { AuthService } from '../../services/auth.service';
 
 import { InventoryService } from '../../services/inventory.service';
@@ -102,6 +104,8 @@ export class Settings implements OnInit {
 
   private readonly snackBar = inject(MatSnackBar);
 
+  private readonly swUpdate = inject(SwUpdate);
+
   locations: Location[] = [];
 
   categories: Category[] = [];
@@ -113,6 +117,10 @@ export class Settings implements OnInit {
   pushSupported = false;
 
   pushSubscribed = false;
+
+  isCheckingUpdate = false;
+
+  isClearingCache = false;
 
   async ngOnInit() {
     this.userId = await this.authService.getCurrentUserId();
@@ -315,6 +323,75 @@ export class Settings implements OnInit {
   async signOut() {
     await this.notificationService.unsubscribe();
     await this.authService.logout();
+  }
+
+  async checkForUpdates() {
+    if (!this.swUpdate.isEnabled) {
+      this.showMessage('Updates are not available in this environment');
+      return;
+    }
+
+    this.isCheckingUpdate = true;
+
+    try {
+      const updateFound = await this.swUpdate.checkForUpdate();
+
+      if (!updateFound) {
+        this.showMessage("You're on the latest version");
+        return;
+      }
+
+      await this.swUpdate.activateUpdate();
+
+      window.location.reload();
+    } catch (err) {
+      console.error('Update check failed', err);
+
+      this.showMessage('Update check failed - try Refresh & Empty Cache below');
+    } finally {
+      this.isCheckingUpdate = false;
+    }
+  }
+
+  async refreshAndEmptyCache() {
+    if (
+      !confirm(
+        'This reloads the app and clears its offline cache. Any unsaved changes will be lost. Continue?',
+      )
+    ) {
+      return;
+    }
+
+    this.isClearingCache = true;
+
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+
+        // Only unregister the app-shell worker (scope '/'), not the
+        // separately-scoped push worker at '/sw-push/' - unregistering
+        // that one would silently break push notifications.
+        const rootScope = `${window.location.origin}/`;
+
+        await Promise.all(
+          registrations.filter((reg) => reg.scope === rootScope).map((reg) => reg.unregister()),
+        );
+      }
+
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys();
+
+        await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+      }
+
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to refresh app', err);
+
+      this.showMessage('Failed to clear cache - please try closing and reopening the app');
+
+      this.isClearingCache = false;
+    }
   }
 
   private showMessage(message: string) {

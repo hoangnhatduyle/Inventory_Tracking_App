@@ -232,6 +232,63 @@
     </div>
   </mat-expansion-panel>
 
+  <!-- App / Updates Section -->
+  <mat-expansion-panel class="settings-panel">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>system_update</mat-icon>
+        <span>App Updates</span>
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+
+    <div class="panel-content">
+      <p class="helper-text">
+        Installed as an app, this always keeps running the version it had when it was last
+        refreshed. If something looks out of date, try these instead of removing and re-adding it.
+      </p>
+
+      <div class="notification-setting">
+        <div class="setting-info">
+          <mat-icon>cloud_sync</mat-icon>
+          <div>
+            <strong>Check for Updates</strong>
+            <p>Fetch and apply the latest version if one is available</p>
+          </div>
+        </div>
+        <button
+          mat-raised-button
+          color="primary"
+          (click)="checkForUpdates()"
+          [disabled]="isCheckingUpdate || isClearingCache"
+        >
+          <mat-icon>refresh</mat-icon>
+          {{ isCheckingUpdate ? 'Checking...' : 'Check' }}
+        </button>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="notification-setting">
+        <div class="setting-info">
+          <mat-icon>delete_sweep</mat-icon>
+          <div>
+            <strong>Refresh &amp; Empty Cache</strong>
+            <p>Force a full reload and clear everything stored offline</p>
+          </div>
+        </div>
+        <button
+          mat-stroked-button
+          color="warn"
+          (click)="refreshAndEmptyCache()"
+          [disabled]="isCheckingUpdate || isClearingCache"
+        >
+          <mat-icon>delete_sweep</mat-icon>
+          {{ isClearingCache ? 'Clearing...' : 'Refresh' }}
+        </button>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
   <p class="settings-note muted">
     Admin actions (raw database browser, backups) live in the
     <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer">Supabase dashboard</a>.

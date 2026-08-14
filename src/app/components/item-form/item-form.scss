@@ -406,66 +406,6 @@ mat-card-content {
   }
 }
 
-// Dark mode support
-@media (prefers-color-scheme: dark) {
-  .form-container {
-    background: #121212;
-  }
-  
-  .form-header {
-    background: #1e1e1e;
-    border-bottom-color: rgba(255, 255, 255, 0.12);
-  }
-  
-  .image-section .image-preview {
-    background: rgba(255, 255, 255, 0.05);
-  }
-  
-  .selector-field {
-    border-color: rgba(255, 255, 255, 0.23);
-    
-    &:hover {
-      border-color: rgba(255, 255, 255, 0.87);
-      background: rgba(255, 255, 255, 0.05);
-    }
-    
-    .selector-label {
-      color: rgba(255, 255, 255, 0.7);
-    }
-    
-    .selector-value span {
-      color: rgba(255, 255, 255, 0.87);
-      
-      &.placeholder {
-        color: rgba(255, 255, 255, 0.5);
-      }
-      
-      &.sub-text {
-        color: rgba(255, 255, 255, 0.7);
-      }
-    }
-  }
-  
-  .notification-toggle {
-    border-color: rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.05);
-    
-    .toggle-info div {
-      strong {
-        color: rgba(255, 255, 255, 0.87);
-      }
-      
-      p {
-        color: rgba(255, 255, 255, 0.7);
-      }
-    }
-  }
-  
-  .action-buttons .cancel-btn {
-    border-color: rgba(255, 255, 255, 0.23);
-  }
-}
-
 // Tablet landscape optimization
 @media (min-width: 768px) and (orientation: landscape) {
   .form-container {
