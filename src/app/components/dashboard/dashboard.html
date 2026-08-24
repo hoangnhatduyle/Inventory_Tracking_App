@@ -48,6 +48,15 @@
   <!-- Board View -->
   @if (viewMode === 'board') {
   <div class="board-view-container animate-fade-in">
+    @if (showUsageTip && hasLocations()) {
+    <div class="usage-tip">
+      <mat-icon>touch_app</mat-icon>
+      <span>Tip: drag any usage bar left or right to quickly update how much you've used.</span>
+      <button mat-icon-button (click)="dismissUsageTip()" aria-label="Dismiss tip">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    }
     @if (hasLocations()) {
     <div class="board-view-grid stagger-animation">
       @for (location of itemsByLocation | keyvalue; track location.key) {

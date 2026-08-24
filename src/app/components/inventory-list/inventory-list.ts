@@ -71,6 +71,14 @@ export class InventoryList implements OnInit, OnDestroy {
   itemImages: Map<number, string> = new Map(); // Store item images by item ID
   dragPreview: Map<number, number> = new Map(); // Live usage % while dragging the usage bar
 
+  private readonly USAGE_TIP_KEY = 'inventory_usage_tip_dismissed';
+  showUsageTip = localStorage.getItem(this.USAGE_TIP_KEY) !== '1';
+
+  dismissUsageTip(): void {
+    this.showUsageTip = false;
+    localStorage.setItem(this.USAGE_TIP_KEY, '1');
+  }
+
   // Search and filter
   searchQuery = '';
   selectedCategory: number | null = null;

@@ -185,6 +185,15 @@
   <!-- Card View -->
   @if (viewMode === 'card' && filteredItems.length > 0) {
   <div class="card-view" [class.select-mode-active]="selectMode">
+    @if (showUsageTip) {
+    <div class="usage-tip">
+      <mat-icon>touch_app</mat-icon>
+      <span>Tip: drag any usage bar to quickly update how much you've used.</span>
+      <button mat-icon-button (click)="dismissUsageTip()" aria-label="Dismiss tip">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    }
     @for (group of getGroupedItems() | keyvalue; track group.key) {
     <div class="group-section">
       @if (groupBy !== 'none') {
@@ -249,6 +258,7 @@
                 [color]="getUsageProgressColorForPercentage(getDisplayUsagePercentage(item))"
                 class="item-progress-bar">
               </mat-progress-bar>
+              <div class="usage-drag-thumb" [style.left.%]="getDisplayUsagePercentage(item)"></div>
             </div>
           </div>
           }

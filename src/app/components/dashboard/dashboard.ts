@@ -65,6 +65,14 @@ export class Dashboard implements OnInit {
   showLowStockDetails = false;
   dragPreview: Map<number, number> = new Map();
 
+  private readonly USAGE_TIP_KEY = 'dashboard_usage_tip_dismissed';
+  showUsageTip = localStorage.getItem(this.USAGE_TIP_KEY) !== '1';
+
+  dismissUsageTip(): void {
+    this.showUsageTip = false;
+    localStorage.setItem(this.USAGE_TIP_KEY, '1');
+  }
+
   constructor(
     private router: Router,
     private authService: AuthService,
