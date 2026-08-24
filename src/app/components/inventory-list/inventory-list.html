@@ -233,17 +233,23 @@
           <div class="usage-progress">
             <div class="progress-info">
               <span class="progress-label">Usage</span>
-              <span class="progress-percentage" [class.low]="getUsagePercentage(item) <= 20" 
-                    [class.medium]="getUsagePercentage(item) > 20 && getUsagePercentage(item) <= 50">
-                {{ getUsagePercentage(item) | number:'1.0-0' }}% remaining
+              <span class="progress-percentage" [class.low]="getDisplayUsagePercentage(item) <= 20"
+                    [class.medium]="getDisplayUsagePercentage(item) > 20 && getDisplayUsagePercentage(item) <= 50">
+                {{ getDisplayUsagePercentage(item) | number:'1.0-0' }}% remaining
               </span>
             </div>
-            <mat-progress-bar 
-              mode="determinate" 
-              [value]="getUsagePercentage(item)"
-              [color]="getUsageProgressColor(item)"
-              class="item-progress-bar">
-            </mat-progress-bar>
+            <div class="usage-drag-wrapper" [appUsageDrag]="getUsagePercentage(item)"
+              (dragPreview)="onUsageDragPreview(item, $event)"
+              (dragEnd)="onUsageDragEnd(item, $event)"
+              (dragReset)="onUsageDragReset(item)"
+              (click)="$event.stopPropagation()">
+              <mat-progress-bar
+                mode="determinate"
+                [value]="getDisplayUsagePercentage(item)"
+                [color]="getUsageProgressColorForPercentage(getDisplayUsagePercentage(item))"
+                class="item-progress-bar">
+              </mat-progress-bar>
+            </div>
           </div>
           }
 

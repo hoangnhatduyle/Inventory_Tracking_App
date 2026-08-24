@@ -18,8 +18,11 @@ import { AuthService } from '../../services/auth.service';
 import { InventoryService } from '../../services/inventory.service';
 import { StatisticsService } from '../../services/statistics.service';
 import { ErrorHandlerService } from '../../services/error-handler.service';
+import { NotificationService } from '../../services/notification.service';
 import { DashboardStatistics, Recipe } from '../../models/statistics.model';
 import { InventoryItem } from '../../models/inventory.model';
+import { UsageDragDirective } from '../../shared/usage-drag.directive';
+import { UsageConfirmDialogComponent } from '../../shared/usage-confirm-dialog/usage-confirm-dialog.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -37,7 +40,8 @@ import { InventoryItem } from '../../models/inventory.model';
     MatProgressSpinnerModule,
     MatButtonToggleModule,
     MatSnackBarModule,
-    MatDialogModule
+    MatDialogModule,
+    UsageDragDirective,
   ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
@@ -59,6 +63,7 @@ export class Dashboard implements OnInit {
   viewMode: 'stats' | 'board' = 'board';
   itemsByLocation: { [key: string]: InventoryItem[] } = {};
   showLowStockDetails = false;
+  dragPreview: Map<number, number> = new Map();
 
   constructor(
     private router: Router,
@@ -66,9 +71,10 @@ export class Dashboard implements OnInit {
     private inventoryService: InventoryService,
     private statisticsService: StatisticsService,
     private errorHandler: ErrorHandlerService,
+    private notificationService: NotificationService,
     private snackBar: MatSnackBar,
-    private dialog: MatDialog
-  ) { }
+    private dialog: MatDialog,
+  ) {}
 
   async ngOnInit() {
     this.userId = await this.authService.getUserId();
@@ -94,7 +100,9 @@ export class Dashboard implements OnInit {
         this.inventoryService.getCategories(),
         this.inventoryService.getLocations(),
       ]);
-      this.categoriesById = new Map(categories.filter((c) => c.id != null).map((c) => [c.id!, c.name]));
+      this.categoriesById = new Map(
+        categories.filter((c) => c.id != null).map((c) => [c.id!, c.name]),
+      );
       this.locationsById = new Map(
         locations
           .filter((l) => l.id != null)
@@ -103,9 +111,7 @@ export class Dashboard implements OnInit {
 
       // Load recent items (last 5 added)
       const allItems = await this.inventoryService.getItems();
-      this.recentItems = allItems
-        .sort((a, b) => (b.id || 0) - (a.id || 0))
-        .slice(0, 5);
+      this.recentItems = allItems.sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 5);
 
       // Load recipe suggestions
       this.recipes = await this.statisticsService.getRecipeSuggestions();
@@ -139,9 +145,9 @@ export class Dashboard implements OnInit {
             item,
             percentage,
             consumptionRate,
-            predictedRunOutDate
+            predictedRunOutDate,
           };
-        })
+        }),
       );
 
       // Sort by percentage (lowest first)
@@ -177,7 +183,10 @@ export class Dashboard implements OnInit {
   getDaysUntilExpiration(expirationDate: string | Date): number {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const expDate = typeof expirationDate === 'string' ? parseLocalDate(expirationDate) : new Date(expirationDate);
+    const expDate =
+      typeof expirationDate === 'string'
+        ? parseLocalDate(expirationDate)
+        : new Date(expirationDate);
     const diffTime = expDate.getTime() - today.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
@@ -218,7 +227,10 @@ export class Dashboard implements OnInit {
 
   getTotalWastedValue(): string {
     if (!this.statistics) return '0.00';
-    const total = this.statistics.wastedItems.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+    const total = this.statistics.wastedItems.reduce(
+      (sum, item) => sum + (item.totalValue || 0),
+      0,
+    );
     return total.toFixed(2);
   }
 
@@ -249,7 +261,7 @@ export class Dashboard implements OnInit {
       this.itemsByLocation = {};
 
       // Create a group for each location
-      locations.forEach(location => {
+      locations.forEach((location) => {
         const key = location.subLocation
           ? `${location.name} - ${location.subLocation}`
           : location.name;
@@ -257,8 +269,8 @@ export class Dashboard implements OnInit {
       });
 
       // Group items by location
-      allItems.forEach(item => {
-        const location = locations.find(l => l.id === item.locationId);
+      allItems.forEach((item) => {
+        const location = locations.find((l) => l.id === item.locationId);
         if (location) {
           const key = location.subLocation
             ? `${location.name} - ${location.subLocation}`
@@ -270,7 +282,7 @@ export class Dashboard implements OnInit {
       });
 
       // Sort items within each location by expiration date
-      Object.keys(this.itemsByLocation).forEach(key => {
+      Object.keys(this.itemsByLocation).forEach((key) => {
         this.itemsByLocation[key].sort((a, b) => {
           if (!a.expirationDate) return 1;
           if (!b.expirationDate) return -1;
@@ -305,9 +317,10 @@ export class Dashboard implements OnInit {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const expDate = typeof item.expirationDate === 'string'
-      ? parseLocalDate(item.expirationDate)
-      : new Date(item.expirationDate);
+    const expDate =
+      typeof item.expirationDate === 'string'
+        ? parseLocalDate(item.expirationDate)
+        : new Date(item.expirationDate);
 
     if (expDate < today) return 'expired';
 
@@ -330,6 +343,72 @@ export class Dashboard implements OnInit {
   getItemPercentage(item: InventoryItem): number {
     if (!item.initialQuantity || item.currentQuantity === undefined) return 100;
     return (item.currentQuantity / item.initialQuantity) * 100;
+  }
+
+  getDisplayPercentage(item: InventoryItem): number {
+    if (item.id != null && this.dragPreview.has(item.id)) {
+      return this.dragPreview.get(item.id)!;
+    }
+    return this.getItemPercentage(item);
+  }
+
+  onUsageDragPreview(item: InventoryItem, percentage: number): void {
+    if (item.id == null) return;
+    this.dragPreview.set(item.id, percentage);
+  }
+
+  onUsageDragReset(item: InventoryItem): void {
+    if (item.id == null) return;
+    this.dragPreview.delete(item.id);
+  }
+
+  async onUsageDragEnd(item: InventoryItem, newPercentage: number): Promise<void> {
+    if (item.id == null || !item.initialQuantity) return;
+
+    const oldPercentage = this.getItemPercentage(item);
+    const oldQuantity = item.currentQuantity ?? item.quantity;
+    const newQuantity = (item.initialQuantity * newPercentage) / 100;
+
+    const dialogRef = this.dialog.open(UsageConfirmDialogComponent, {
+      width: '400px',
+      maxWidth: '95vw',
+      data: {
+        itemName: item.name,
+        unit: item.unit,
+        oldPercentage,
+        newPercentage,
+        oldQuantity,
+        newQuantity,
+      },
+    });
+
+    dialogRef.afterClosed().subscribe(async (result) => {
+      this.dragPreview.delete(item.id!);
+
+      if (!result?.confirmed) return;
+
+      try {
+        const success = await this.inventoryService.applyUsagePercentageChange(
+          item,
+          newPercentage,
+          result.notes,
+        );
+
+        if (!success) {
+          this.errorHandler.showWarning('Not enough stock to deduct that amount');
+          return;
+        }
+
+        if (newPercentage <= 20 && newPercentage > 0) {
+          await this.notificationService.checkAndNotifyLowStock(item.id!, item.name, newPercentage);
+        }
+
+        this.errorHandler.showSuccess('✓ Usage updated successfully');
+        await Promise.all([this.groupItemsByLocation(), this.loadLowStockItems()]);
+      } catch (error) {
+        this.errorHandler.handleDataError('update usage', error);
+      }
+    });
   }
 
   toggleLowStockDetails() {

@@ -897,16 +897,27 @@
                 }
 
                 .inline-progress-bar {
+                    position: relative;
                     height: 4px;
                     background: rgba(0, 0, 0, 0.08);
                     border-radius: 2px;
-                    overflow: hidden;
+                    overflow: visible;
                     width: 100%;
+                    cursor: grab;
+                    padding: 6px 0;
+                    margin: -6px 0;
+                    box-sizing: content-box;
+
+                    &.usage-drag-active {
+                        cursor: grabbing;
+                    }
 
                     .progress-fill {
+                        position: relative;
                         height: 100%;
                         transition: width 0.3s ease;
                         border-radius: 2px;
+                        overflow: visible;
 
                         &.critical {
                             background: linear-gradient(90deg, #f44336 0%, #e53935 100%);
@@ -919,6 +930,24 @@
                         &.good {
                             background: linear-gradient(90deg, #4caf50 0%, #43a047 100%);
                         }
+
+                        &::after {
+                            content: '';
+                            position: absolute;
+                            top: 50%;
+                            right: -5px;
+                            width: 10px;
+                            height: 10px;
+                            border-radius: 50%;
+                            background: inherit;
+                            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+                            transform: translateY(-50%) scale(0);
+                            transition: transform 0.15s ease;
+                        }
+                    }
+
+                    &.usage-drag-active .progress-fill::after {
+                        transform: translateY(-50%) scale(1);
                     }
                 }
             }

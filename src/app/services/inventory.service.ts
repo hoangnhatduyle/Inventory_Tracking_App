@@ -248,6 +248,46 @@ export class InventoryService {
     }
   }
 
+  // Applies a new "percentage remaining" to an item, deriving the equivalent
+  // amountUsed and routing through the FIFO batch path when batches exist —
+  // the same persistence flow as the manual Update Usage dialog, just keyed
+  // off a target percentage (used by the draggable usage bar).
+  async applyUsagePercentageChange(
+    item: InventoryItem,
+    newPercentage: number,
+    notes?: string,
+  ): Promise<boolean> {
+    if (!item.id || !item.initialQuantity) return false;
+
+    const previousQuantity = item.currentQuantity ?? item.quantity;
+    const newQuantity = (item.initialQuantity * newPercentage) / 100;
+    const amountUsed = previousQuantity - newQuantity;
+    if (amountUsed < 0) return false;
+
+    const batches = await this.getBatches(item.id);
+    if (batches && batches.length > 0) {
+      const success = await this.deductFromBatchesFIFO(item.id, amountUsed);
+      if (!success) return false;
+
+      const newTotalQuantity = await this.getTotalBatchQuantity(item.id);
+      const earliestExpiration = await this.getEarliestBatchExpiration(item.id);
+
+      await this.updateItemUsage(item.id, newTotalQuantity, amountUsed, notes);
+
+      if (earliestExpiration) {
+        await this.updateItem({
+          ...item,
+          quantity: newTotalQuantity,
+          currentQuantity: newTotalQuantity,
+          expirationDate: earliestExpiration,
+        });
+      }
+      return true;
+    }
+
+    return this.updateItemUsage(item.id, newQuantity, amountUsed, notes);
+  }
+
   async getUsageHistory(itemId: number): Promise<UsageHistory[]> {
     try {
       return await this.api.get<UsageHistory[]>(`/api/inventory/${itemId}/usage`);

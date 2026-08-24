@@ -49,7 +49,7 @@ import { ImageSelectorDialogComponent, ImageOption } from './image-selector-dial
     MatBottomSheetModule,
     MatSnackBarModule,
     MatDividerModule,
-    MatTooltipModule
+    MatTooltipModule,
   ],
   templateUrl: './item-form.html',
   styleUrl: './item-form.scss',
@@ -91,9 +91,20 @@ export class ItemForm implements OnInit {
 
   // Unit options
   units = [
-    'piece', 'kg', 'g', 'lb', 'oz',
-    'L', 'ml', 'gallon', 'cup',
-    'box', 'can', 'bottle', 'bag', 'pack'
+    'piece',
+    'kg',
+    'g',
+    'lb',
+    'oz',
+    'L',
+    'ml',
+    'gallon',
+    'cup',
+    'box',
+    'can',
+    'bottle',
+    'bag',
+    'pack',
   ];
 
   constructor(
@@ -108,8 +119,8 @@ export class ItemForm implements OnInit {
     private expirationAIService: ExpirationAIService,
     private bottomSheet: MatBottomSheet,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar
-  ) { }
+    private snackBar: MatSnackBar,
+  ) {}
 
   async ngOnInit() {
     this.userId = await this.authService.getUserId();
@@ -128,7 +139,7 @@ export class ItemForm implements OnInit {
 
     try {
       const items = await this.inventoryService.getItems();
-      const item = items.find(i => i.id === this.itemId);
+      const item = items.find((i) => i.id === this.itemId);
 
       if (item) {
         this.itemName = item.name;
@@ -136,20 +147,22 @@ export class ItemForm implements OnInit {
         this.unit = item.unit;
         this.purchaseDate = item.purchaseDate ? this.parseLocalDate(item.purchaseDate) : null;
         this.expirationDate = item.expirationDate ? this.parseLocalDate(item.expirationDate) : null;
-        this.price = item.price || null;
+        // item.price is stored per-unit; the form displays the total price for the batch.
+        this.price = item.price ? Math.round(item.price * item.quantity * 100) / 100 : null;
         this.notes = item.notes || '';
         this.allowNotification = item.notificationEnabled ?? false;
         this.barcode = item.barcode || '';
         this.initialQuantity = item.initialQuantity || item.quantity;
-        this.currentQuantity = item.currentQuantity !== undefined ? item.currentQuantity : item.quantity;
+        this.currentQuantity =
+          item.currentQuantity !== undefined ? item.currentQuantity : item.quantity;
 
         // Load category
         const categories = await this.inventoryService.getCategories();
-        this.selectedCategory = categories.find(c => c.id === item.categoryId) || null;
+        this.selectedCategory = categories.find((c) => c.id === item.categoryId) || null;
 
         // Load location
         const locations = await this.inventoryService.getLocations();
-        this.selectedLocation = locations.find(l => l.id === item.locationId) || null;
+        this.selectedLocation = locations.find((l) => l.id === item.locationId) || null;
 
         // Load image
         if (item.id) {
@@ -173,7 +186,9 @@ export class ItemForm implements OnInit {
   }
 
   openCategorySelector() {
-    const bottomSheetRef = this.bottomSheet.open(CategorySelectorComponent, { panelClass: 'centered-bottom-sheet' });
+    const bottomSheetRef = this.bottomSheet.open(CategorySelectorComponent, {
+      panelClass: 'centered-bottom-sheet',
+    });
     bottomSheetRef.afterDismissed().subscribe((category: Category) => {
       if (category) {
         this.selectedCategory = category;
@@ -184,7 +199,7 @@ export class ItemForm implements OnInit {
   openLocationSelector() {
     const bottomSheetRef = this.bottomSheet.open(LocationSelectorComponent, {
       data: { userId: this.userId },
-      panelClass: 'centered-bottom-sheet'
+      panelClass: 'centered-bottom-sheet',
     });
     bottomSheetRef.afterDismissed().subscribe((location: Location) => {
       if (location) {
@@ -253,7 +268,9 @@ export class ItemForm implements OnInit {
     }
 
     if (this.expirationDate && this.purchaseDate && this.expirationDate < this.purchaseDate) {
-      this.snackBar.open('Expiration date cannot be before purchase date', 'Close', { duration: 3000 });
+      this.snackBar.open('Expiration date cannot be before purchase date', 'Close', {
+        duration: 3000,
+      });
       return false;
     }
 
@@ -271,11 +288,13 @@ export class ItemForm implements OnInit {
     }
 
     try {
-      const formattedExpirationDate = this.expirationDate ? this.formatDateToString(this.expirationDate) : undefined;
-      
+      const formattedExpirationDate = this.expirationDate
+        ? this.formatDateToString(this.expirationDate)
+        : undefined;
+
       // Calculate price per unit from total price
       const pricePerUnit = this.price && this.quantity > 0 ? this.price / this.quantity : undefined;
-      
+
       const itemData: Partial<InventoryItem> = {
         userId: this.userId,
         name: this.itemName.trim(),
@@ -290,8 +309,10 @@ export class ItemForm implements OnInit {
         notificationEnabled: this.allowNotification,
         notificationDaysBefore: 3,
         barcode: this.barcode || undefined,
-        initialQuantity: this.isEditMode && this.initialQuantity !== null ? this.initialQuantity : this.quantity,
-        currentQuantity: this.isEditMode && this.currentQuantity !== null ? this.currentQuantity : this.quantity
+        initialQuantity:
+          this.isEditMode && this.initialQuantity !== null ? this.initialQuantity : this.quantity,
+        currentQuantity:
+          this.isEditMode && this.currentQuantity !== null ? this.currentQuantity : this.quantity,
       };
 
       let savedItemId: number;
@@ -299,8 +320,8 @@ export class ItemForm implements OnInit {
       if (this.isEditMode && this.itemId) {
         // Update existing item
         const fullItem: InventoryItem = {
-          ...itemData as InventoryItem,
-          id: this.itemId
+          ...(itemData as InventoryItem),
+          id: this.itemId,
         };
         const success = await this.inventoryService.updateItem(fullItem);
         if (success) {
@@ -326,7 +347,7 @@ export class ItemForm implements OnInit {
         if (this.imageChanged) {
           // Get existing images
           const existingImages = await this.inventoryService.getItemImages(savedItemId);
-          
+
           // If user removed the image (capturedImage is null but there were existing images)
           if (!this.capturedImage && existingImages.length > 0) {
             // Delete all existing images for this item
@@ -349,7 +370,7 @@ export class ItemForm implements OnInit {
               itemId: savedItemId,
               imagePath: this.capturedImagePath,
               imageData: this.capturedImage || '',
-              isPrimary: true
+              isPrimary: true,
             });
           }
         }
@@ -360,7 +381,7 @@ export class ItemForm implements OnInit {
             itemId: savedItemId,
             imagePath: this.capturedImagePath,
             imageData: this.capturedImage || '',
-            isPrimary: true
+            isPrimary: true,
           });
         }
       }
@@ -376,9 +397,11 @@ export class ItemForm implements OnInit {
           itemId: savedItemId,
           quantity: this.quantity,
           expirationDate: this.expirationDate ? this.formatDateToString(this.expirationDate) : null,
-          purchaseDate: this.purchaseDate ? this.formatDateToString(this.purchaseDate) : this.formatDateToString(new Date()),
+          purchaseDate: this.purchaseDate
+            ? this.formatDateToString(this.purchaseDate)
+            : this.formatDateToString(new Date()),
           price: pricePerUnit || null,
-          notes: this.notes.trim() || null
+          notes: this.notes.trim() || null,
         });
         if (!batchId) {
           throw new Error('Item saved but failed to create initial stock batch');
@@ -408,10 +431,15 @@ export class ItemForm implements OnInit {
     const base = new Date(this.purchaseDate || new Date());
     const amount = this.expireAmount || 0;
     let totalDays = 0;
-    if (this.expireUnit === 'years') { totalDays = amount * 365; }
-    else if (this.expireUnit === 'months') { totalDays = amount * 30; }
-    else if (this.expireUnit === 'weeks') { totalDays = amount * 7; }
-    else { totalDays = amount; }
+    if (this.expireUnit === 'years') {
+      totalDays = amount * 365;
+    } else if (this.expireUnit === 'months') {
+      totalDays = amount * 30;
+    } else if (this.expireUnit === 'weeks') {
+      totalDays = amount * 7;
+    } else {
+      totalDays = amount;
+    }
     const d = new Date(base);
     d.setDate(d.getDate() + totalDays);
     return d;
@@ -451,8 +479,7 @@ export class ItemForm implements OnInit {
     if (diffDays % 365 === 0) {
       this.expireUnit = 'years';
       this.expireAmount = diffDays / 365;
-    }
-    else if (diffDays % 30 === 0) {
+    } else if (diffDays % 30 === 0) {
       this.expireUnit = 'months';
       this.expireAmount = diffDays / 30;
     } else if (diffDays % 7 === 0) {
@@ -479,7 +506,11 @@ export class ItemForm implements OnInit {
         console.info('[onScanBarcode] scanBarcode returned:', scannedBarcode);
       } catch (scanErr) {
         console.error('[onScanBarcode] scanBarcode failed:', scanErr);
-        this.snackBar.open('Failed scanning barcode (camera scan step). See logs for details.', 'Close', { duration: 5000 });
+        this.snackBar.open(
+          'Failed scanning barcode (camera scan step). See logs for details.',
+          'Close',
+          { duration: 5000 },
+        );
         return;
       }
 
@@ -498,7 +529,11 @@ export class ItemForm implements OnInit {
         console.info('[onScanBarcode] getBarcodeMapping returned:', mapping);
       } catch (mapErr) {
         console.error('[onScanBarcode] getBarcodeMapping failed:', mapErr);
-        this.snackBar.open('Failed scanning barcode (mapping lookup). See logs for details.', 'Close', { duration: 5000 });
+        this.snackBar.open(
+          'Failed scanning barcode (mapping lookup). See logs for details.',
+          'Close',
+          { duration: 5000 },
+        );
         return;
       }
 
@@ -509,7 +544,7 @@ export class ItemForm implements OnInit {
         // Find and set category
         try {
           const categories = await this.inventoryService.getCategories();
-          this.selectedCategory = categories.find(c => c.id === mapping.categoryId) || null;
+          this.selectedCategory = categories.find((c) => c.id === mapping.categoryId) || null;
         } catch (categoryErr) {
           console.error('[onScanBarcode] Failed fetching categories:', categoryErr);
           // Not a blocking error; continue but log it
@@ -524,7 +559,7 @@ export class ItemForm implements OnInit {
         if (mapping.locationId) {
           try {
             const locations = await this.inventoryService.getLocations();
-            this.selectedLocation = locations.find(l => l.id === mapping.locationId) || null;
+            this.selectedLocation = locations.find((l) => l.id === mapping.locationId) || null;
           } catch (locationErr) {
             console.error('[onScanBarcode] Failed fetching location:', locationErr);
           }
@@ -533,7 +568,7 @@ export class ItemForm implements OnInit {
         // Auto-fill image - only replace if barcode has cached images
         try {
           const barcodeImages = await this.inventoryService.getImagesByBarcode(scannedBarcode);
-          
+
           // Only auto-fill image if we found images for this barcode
           if (barcodeImages.length > 1) {
             // Multiple images available - let user choose
@@ -543,7 +578,7 @@ export class ItemForm implements OnInit {
               const displayUrl = path ? await this.imageService.getImageUrl(path) : '';
               imageOptions.push({
                 imagePath: path,
-                displayUrl: displayUrl
+                displayUrl: displayUrl,
               });
             }
 
@@ -552,8 +587,8 @@ export class ItemForm implements OnInit {
               maxWidth: '600px',
               data: {
                 images: imageOptions,
-                itemName: mapping.itemName
-              }
+                itemName: mapping.itemName,
+              },
             });
 
             dialogRef.afterClosed().subscribe((selectedImage: ImageOption | null) => {
@@ -573,7 +608,7 @@ export class ItemForm implements OnInit {
             this.capturedImagePath = mapping.imagePath;
             this.capturedImage = await this.imageService.getImageUrl(mapping.imagePath);
           }
-          // If no images found (barcodeImages.length === 0 && !mapping.imagePath), 
+          // If no images found (barcodeImages.length === 0 && !mapping.imagePath),
           // keep the current image - don't replace it
         } catch (imageErr) {
           console.error('[onScanBarcode] Failed loading images:', imageErr);
@@ -586,14 +621,16 @@ export class ItemForm implements OnInit {
           suggestedDate.setDate(suggestedDate.getDate() + mapping.suggestedShelfLifeDays);
           this.expirationDate = suggestedDate;
           this.syncInputsFromExpirationDate();
-          
+
           let message = `Auto-filled: ${mapping.itemName}`;
           if (mapping.aiNote) {
             message += ` (${mapping.aiNote})`;
           }
           this.snackBar.open(message, 'Close', { duration: 4000 });
         } else {
-          this.snackBar.open(`Auto-filled from previous scan: ${mapping.itemName}`, 'Close', { duration: 3000 });
+          this.snackBar.open(`Auto-filled from previous scan: ${mapping.itemName}`, 'Close', {
+            duration: 3000,
+          });
         }
       } else {
         // First time seeing this barcode
@@ -619,7 +656,7 @@ export class ItemForm implements OnInit {
         aiNote: this.aiSuggestedNote || null,
         price: this.price || null,
         imagePath: this.capturedImagePath || null,
-        locationId: this.selectedLocation?.id || null
+        locationId: this.selectedLocation?.id || null,
       });
     }
   }
@@ -680,8 +717,8 @@ export class ItemForm implements OnInit {
           purchaseDate: this.purchaseDate,
           suggestedDays: suggestion.days,
           suggestedExpirationDate: suggestedDate,
-          note: suggestion.note
-        }
+          note: suggestion.note,
+        },
       });
 
       dialogRef.afterClosed().subscribe(async (result) => {
@@ -689,11 +726,11 @@ export class ItemForm implements OnInit {
           // Apply the AI suggestion
           this.expirationDate = suggestedDate;
           this.syncInputsFromExpirationDate();
-          
+
           // Store AI data for later barcode mapping save
           this.aiSuggestedDays = suggestion.days;
           this.aiSuggestedNote = suggestion.note;
-          
+
           this.snackBar.open('✓ AI suggestion applied', 'Close', { duration: 3000 });
         }
       });

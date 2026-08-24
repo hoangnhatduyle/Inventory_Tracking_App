@@ -73,17 +73,21 @@
                 <div class="item-name-container">
                   <span class="item-name">{{ item.name }}</span>
                   @if (item.initialQuantity && item.currentQuantity !== undefined) {
-                  <div class="inline-progress-bar">
-                    <div class="progress-fill" [style.width.%]="getItemPercentage(item)"
-                      [class.critical]="getItemPercentage(item) <= 10"
-                      [class.warning]="getItemPercentage(item) > 10 && getItemPercentage(item) <= 20"
-                      [class.good]="getItemPercentage(item) > 20">
+                  <div class="inline-progress-bar" [appUsageDrag]="getItemPercentage(item)"
+                    (dragPreview)="onUsageDragPreview(item, $event)"
+                    (dragEnd)="onUsageDragEnd(item, $event)"
+                    (dragReset)="onUsageDragReset(item)"
+                    (click)="$event.stopPropagation()">
+                    <div class="progress-fill" [style.width.%]="getDisplayPercentage(item)"
+                      [class.critical]="getDisplayPercentage(item) <= 10"
+                      [class.warning]="getDisplayPercentage(item) > 10 && getDisplayPercentage(item) <= 20"
+                      [class.good]="getDisplayPercentage(item) > 20">
                     </div>
                   </div>
-                  <span class="percentage-badge" [class.critical]="getItemPercentage(item) <= 10"
-                    [class.warning]="getItemPercentage(item) > 10 && getItemPercentage(item) <= 20"
-                    [class.good]="getItemPercentage(item) > 20">
-                    {{ getItemPercentage(item) | number:'1.0-0' }}%
+                  <span class="percentage-badge" [class.critical]="getDisplayPercentage(item) <= 10"
+                    [class.warning]="getDisplayPercentage(item) > 10 && getDisplayPercentage(item) <= 20"
+                    [class.good]="getDisplayPercentage(item) > 20">
+                    {{ getDisplayPercentage(item) | number:'1.0-0' }}%
                   </span>
                   }
                 </div>

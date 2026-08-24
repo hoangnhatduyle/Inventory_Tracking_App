@@ -31,6 +31,8 @@ import { InventoryItem, Category, Location } from '../../models/inventory.model'
 import { UpdateUsageDialog } from '../update-usage-dialog/update-usage-dialog';
 import { RefillDialogComponent } from './refill-dialog.component';
 import { ViewBatchesDialogComponent } from './view-batches-dialog.component';
+import { UsageDragDirective } from '../../shared/usage-drag.directive';
+import { UsageConfirmDialogComponent } from '../../shared/usage-confirm-dialog/usage-confirm-dialog.component';
 
 @Component({
   selector: 'app-inventory-list',
@@ -54,7 +56,8 @@ import { ViewBatchesDialogComponent } from './view-batches-dialog.component';
     MatDialogModule,
     MatProgressBarModule,
     MatProgressSpinnerModule,
-    MatPaginatorModule
+    MatPaginatorModule,
+    UsageDragDirective,
   ],
   templateUrl: './inventory-list.html',
   styleUrl: './inventory-list.scss',
@@ -66,6 +69,7 @@ export class InventoryList implements OnInit, OnDestroy {
   categories: Category[] = [];
   locations: Location[] = [];
   itemImages: Map<number, string> = new Map(); // Store item images by item ID
+  dragPreview: Map<number, number> = new Map(); // Live usage % while dragging the usage bar
 
   // Search and filter
   searchQuery = '';
@@ -84,7 +88,17 @@ export class InventoryList implements OnInit, OnDestroy {
   selectMode = false;
 
   // Table columns
-  displayedColumns: string[] = ['select', 'image', 'name', 'category', 'quantity', 'location', 'expiration', 'status', 'actions'];
+  displayedColumns: string[] = [
+    'select',
+    'image',
+    'name',
+    'category',
+    'quantity',
+    'location',
+    'expiration',
+    'status',
+    'actions',
+  ];
 
   // Pagination
   @ViewChild(MatPaginator) paginator!: MatPaginator;
@@ -149,7 +163,7 @@ export class InventoryList implements OnInit, OnDestroy {
     private imageService: ImageService,
     private router: Router,
     private snackBar: MatSnackBar,
-    private dialog: MatDialog
+    private dialog: MatDialog,
   ) {}
 
   getItemImage(itemId: number | undefined): string {
@@ -180,10 +194,10 @@ export class InventoryList implements OnInit, OnDestroy {
       this.items = await this.inventoryService.getItems();
       this.categories = await this.inventoryService.getCategories();
       this.locations = await this.inventoryService.getLocations();
-      
+
       // Load images for all items
       await this.loadItemImages();
-      
+
       this.applyFilters();
     } catch (error) {
       this.errorHandler.handleDataError('load inventory', error);
@@ -212,7 +226,7 @@ export class InventoryList implements OnInit, OnDestroy {
         }
       }
     });
-    
+
     await Promise.all(imagePromises);
   }
 
@@ -226,21 +240,22 @@ export class InventoryList implements OnInit, OnDestroy {
     // Search filter (includes barcode search)
     if (this.searchQuery.trim()) {
       const query = this.searchQuery.toLowerCase();
-      filtered = filtered.filter(item =>
-        item.name.toLowerCase().includes(query) ||
-        item.notes?.toLowerCase().includes(query) ||
-        item.barcode?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (item) =>
+          item.name.toLowerCase().includes(query) ||
+          item.notes?.toLowerCase().includes(query) ||
+          item.barcode?.toLowerCase().includes(query),
       );
     }
 
     // Category filter
     if (this.selectedCategory) {
-      filtered = filtered.filter(item => item.categoryId === this.selectedCategory);
+      filtered = filtered.filter((item) => item.categoryId === this.selectedCategory);
     }
 
     // Location filter
     if (this.selectedLocation) {
-      filtered = filtered.filter(item => item.locationId === this.selectedLocation);
+      filtered = filtered.filter((item) => item.locationId === this.selectedLocation);
     }
 
     // Status filter
@@ -250,21 +265,30 @@ export class InventoryList implements OnInit, OnDestroy {
     threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
 
     if (this.selectedStatus === 'expired') {
-      filtered = filtered.filter(item => {
+      filtered = filtered.filter((item) => {
         if (!item.expirationDate) return false;
-        const expDate = typeof item.expirationDate === 'string' ? parseLocalDate(item.expirationDate) : new Date(item.expirationDate);
+        const expDate =
+          typeof item.expirationDate === 'string'
+            ? parseLocalDate(item.expirationDate)
+            : new Date(item.expirationDate);
         return expDate < today;
       });
     } else if (this.selectedStatus === 'expiring-soon') {
-      filtered = filtered.filter(item => {
+      filtered = filtered.filter((item) => {
         if (!item.expirationDate) return false;
-        const expDate = typeof item.expirationDate === 'string' ? parseLocalDate(item.expirationDate) : new Date(item.expirationDate);
+        const expDate =
+          typeof item.expirationDate === 'string'
+            ? parseLocalDate(item.expirationDate)
+            : new Date(item.expirationDate);
         return expDate >= today && expDate <= threeDaysFromNow;
       });
     } else if (this.selectedStatus === 'fresh') {
-      filtered = filtered.filter(item => {
+      filtered = filtered.filter((item) => {
         if (!item.expirationDate) return true;
-        const expDate = typeof item.expirationDate === 'string' ? parseLocalDate(item.expirationDate) : new Date(item.expirationDate);
+        const expDate =
+          typeof item.expirationDate === 'string'
+            ? parseLocalDate(item.expirationDate)
+            : new Date(item.expirationDate);
         return expDate > threeDaysFromNow;
       });
     }
@@ -276,7 +300,16 @@ export class InventoryList implements OnInit, OnDestroy {
           if (!a.expirationDate && !b.expirationDate) return 0;
           if (!a.expirationDate) return 1;
           if (!b.expirationDate) return -1;
-          return (typeof a.expirationDate === 'string' ? parseLocalDate(a.expirationDate) : new Date(a.expirationDate)).getTime() - (typeof b.expirationDate === 'string' ? parseLocalDate(b.expirationDate) : new Date(b.expirationDate)).getTime();
+          return (
+            (typeof a.expirationDate === 'string'
+              ? parseLocalDate(a.expirationDate)
+              : new Date(a.expirationDate)
+            ).getTime() -
+            (typeof b.expirationDate === 'string'
+              ? parseLocalDate(b.expirationDate)
+              : new Date(b.expirationDate)
+            ).getTime()
+          );
         case 'name':
           return a.name.localeCompare(b.name);
         case 'quantity':
@@ -302,7 +335,7 @@ export class InventoryList implements OnInit, OnDestroy {
 
   getItemStatus(item: InventoryItem): 'expired' | 'expiring-soon' | 'fresh' {
     if (!item.expirationDate) return 'fresh';
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const expDate = this.parseLocalDate(item.expirationDate);
@@ -317,17 +350,22 @@ export class InventoryList implements OnInit, OnDestroy {
 
   getStatusColor(status: string): string {
     switch (status) {
-      case 'expired': return 'warn';
-      case 'expiring-soon': return 'accent';
-      default: return 'primary';
+      case 'expired':
+        return 'warn';
+      case 'expiring-soon':
+        return 'accent';
+      default:
+        return 'primary';
     }
   }
 
   hasUsageTracking(item: InventoryItem): boolean {
-    return item.initialQuantity !== undefined && 
-           item.initialQuantity !== null && 
-           item.currentQuantity !== undefined && 
-           item.currentQuantity !== null;
+    return (
+      item.initialQuantity !== undefined &&
+      item.initialQuantity !== null &&
+      item.currentQuantity !== undefined &&
+      item.currentQuantity !== null
+    );
   }
 
   getUsagePercentage(item: InventoryItem): number {
@@ -338,19 +376,90 @@ export class InventoryList implements OnInit, OnDestroy {
   }
 
   getUsageProgressColor(item: InventoryItem): 'primary' | 'accent' | 'warn' {
-    const percentage = this.getUsagePercentage(item);
+    return this.getUsageProgressColorForPercentage(this.getUsagePercentage(item));
+  }
+
+  getUsageProgressColorForPercentage(percentage: number): 'primary' | 'accent' | 'warn' {
     if (percentage > 50) return 'primary'; // Green
-    if (percentage > 20) return 'accent';  // Orange
+    if (percentage > 20) return 'accent'; // Orange
     return 'warn'; // Red
   }
 
+  getDisplayUsagePercentage(item: InventoryItem): number {
+    if (item.id != null && this.dragPreview.has(item.id)) {
+      return this.dragPreview.get(item.id)!;
+    }
+    return this.getUsagePercentage(item);
+  }
+
+  onUsageDragPreview(item: InventoryItem, percentage: number): void {
+    if (item.id == null) return;
+    this.dragPreview.set(item.id, percentage);
+  }
+
+  onUsageDragReset(item: InventoryItem): void {
+    if (item.id == null) return;
+    this.dragPreview.delete(item.id);
+  }
+
+  async onUsageDragEnd(item: InventoryItem, newPercentage: number): Promise<void> {
+    if (item.id == null || !item.initialQuantity) return;
+
+    const oldPercentage = this.getUsagePercentage(item);
+    const oldQuantity = item.currentQuantity ?? item.quantity;
+    const newQuantity = (item.initialQuantity * newPercentage) / 100;
+
+    const dialogRef = this.dialog.open(UsageConfirmDialogComponent, {
+      width: '400px',
+      maxWidth: '95vw',
+      data: {
+        itemName: item.name,
+        unit: item.unit,
+        oldPercentage,
+        newPercentage,
+        oldQuantity,
+        newQuantity,
+      },
+    });
+
+    dialogRef.afterClosed().subscribe(async (result) => {
+      this.dragPreview.delete(item.id!);
+
+      if (!result?.confirmed) return;
+
+      try {
+        const success = await this.inventoryService.applyUsagePercentageChange(
+          item,
+          newPercentage,
+          result.notes,
+        );
+
+        if (!success) {
+          this.errorHandler.showWarning('Not enough stock to deduct that amount');
+          return;
+        }
+
+        if (newPercentage <= 20 && newPercentage > 0) {
+          await this.notificationService.checkAndNotifyLowStock(item.id!, item.name, newPercentage);
+        }
+
+        this.errorHandler.showSuccess('✓ Usage updated successfully');
+        await this.loadData();
+      } catch (error) {
+        this.errorHandler.handleDataError('update usage', error);
+      }
+    });
+  }
+
   getCategoryName(categoryId: number): string {
-    return this.categories.find(c => c.id === categoryId)?.name || 'Unknown';
+    return this.categories.find((c) => c.id === categoryId)?.name || 'Unknown';
   }
 
   getLocationName(locationId: number): string {
-    const location = this.locations.find(l => l.id === locationId);
-    return location ? `${location.name}${location.subLocation ? ' - ' + location.subLocation : ''}` : 'Unknown';
+    const location = this.locations.find((l) => l.id === locationId);
+    return location
+      ? `${location.name}${location.subLocation ? ' - ' + location.subLocation : ''}`
+      : 'Unknown';
   }
 
   getDaysUntilExpiration(item: InventoryItem): number | null {
@@ -365,12 +474,12 @@ export class InventoryList implements OnInit, OnDestroy {
 
   getGroupedItems(): { [key: string]: InventoryItem[] } {
     if (this.groupBy === 'none') {
-      return { 'all': this.pagedItems };
+      return { all: this.pagedItems };
     }
 
     const grouped: { [key: string]: InventoryItem[] } = {};
 
-    this.pagedItems.forEach(item => {
+    this.pagedItems.forEach((item) => {
       let key: string;
       if (this.groupBy === 'category') {
         key = this.getCategoryName(item.categoryId);
@@ -396,11 +505,11 @@ export class InventoryList implements OnInit, OnDestroy {
 
     try {
       const scannedBarcode = await this.barcodeService.scanBarcode();
-      
+
       if (scannedBarcode) {
         this.searchQuery = scannedBarcode;
         this.applyFilters();
-        
+
         if (this.filteredItems.length === 0) {
           this.errorHandler.showWarning('No items found with this barcode');
         } else {
@@ -433,7 +542,7 @@ export class InventoryList implements OnInit, OnDestroy {
 
   toggleItemSelection(itemId: number | undefined) {
     if (!itemId) return;
-    
+
     if (this.selectedItems.has(itemId)) {
       this.selectedItems.delete(itemId);
     } else {
@@ -442,7 +551,7 @@ export class InventoryList implements OnInit, OnDestroy {
   }
 
   selectAll() {
-    this.filteredItems.forEach(item => {
+    this.filteredItems.forEach((item) => {
       if (item.id) this.selectedItems.add(item.id);
     });
   }
@@ -503,7 +612,7 @@ export class InventoryList implements OnInit, OnDestroy {
     const dialogRef = this.dialog.open(UpdateUsageDialog, {
       width: '500px',
       maxWidth: '95vw',
-      data: { item }
+      data: { item },
     });
 
     dialogRef.afterClosed().subscribe(async (result) => {
@@ -515,7 +624,7 @@ export class InventoryList implements OnInit, OnDestroy {
             const confirmDialog = this.dialog.open(EmptyItemConfirmationDialog, {
               width: '400px',
               maxWidth: '95vw',
-              data: { itemName: item.name }
+              data: { itemName: item.name },
             });
 
             confirmDialog.afterClosed().subscribe(async (action: 'refill' | 'remove' | null) => {
@@ -539,24 +648,26 @@ export class InventoryList implements OnInit, OnDestroy {
           // Normal usage update (not empty)
           // Use FIFO batch deduction if batches exist
           const batches = await this.inventoryService.getBatches(item.id!);
-          
+
           if (batches && batches.length > 0) {
             // Deduct from batches using FIFO
             const success = await this.inventoryService.deductFromBatchesFIFO(
               item.id!,
-              result.amountUsed
+              result.amountUsed,
             );
 
             if (success) {
               // Update main item quantity to match total from batches
               const newTotalQuantity = await this.inventoryService.getTotalBatchQuantity(item.id!);
-              const earliestExpiration = await this.inventoryService.getEarliestBatchExpiration(item.id!);
-              
+              const earliestExpiration = await this.inventoryService.getEarliestBatchExpiration(
+                item.id!,
+              );
+
               await this.inventoryService.updateItemUsage(
                 item.id!,
                 newTotalQuantity,
                 result.amountUsed,
-                result.notes
+                result.notes,
               );
 
               // Update expiration date to earliest batch
@@ -565,7 +676,7 @@ export class InventoryList implements OnInit, OnDestroy {
                   ...item,
                   quantity: newTotalQuantity,
                   currentQuantity: newTotalQuantity,
-                  expirationDate: earliestExpiration
+                  expirationDate: earliestExpiration,
                 });
               }
             } else {
@@ -578,10 +689,10 @@ export class InventoryList implements OnInit, OnDestroy {
               item.id!,
               result.remainingAmount,
               result.amountUsed,
-              result.notes
+              result.notes,
             );
           }
-          
+
           // Check for low stock and notify
           if (item.initialQuantity && item.initialQuantity > 0) {
             const percentage = (result.remainingAmount / item.initialQuantity) * 100;
@@ -589,11 +700,11 @@ export class InventoryList implements OnInit, OnDestroy {
               await this.notificationService.checkAndNotifyLowStock(
                 item.id!,
                 item.name,
-                percentage
+                percentage,
               );
             }
           }
-          
+
           this.errorHandler.showSuccess('✓ Usage updated successfully (FIFO)');
           await this.loadData();
         } catch (error) {
@@ -613,7 +724,9 @@ export class InventoryList implements OnInit, OnDestroy {
       const pricePerUnit = item.price || 0;
       const valueLost = (pricePerUnit * remainingQty).toFixed(2);
 
-      const confirmed = confirm(`Mark ${remainingQty} ${item.unit} of "${item.name}" as wasted?\nValue lost: $${valueLost}`);
+      const confirmed = confirm(
+        `Mark ${remainingQty} ${item.unit} of "${item.name}" as wasted?\nValue lost: $${valueLost}`,
+      );
       if (!confirmed) return;
 
       const success = await this.inventoryService.markAsWasted(item.id!);
@@ -641,8 +754,8 @@ export class InventoryList implements OnInit, OnDestroy {
       data: {
         item,
         currentQuantity,
-        userId: this.userId
-      }
+        userId: this.userId,
+      },
     });
 
     dialogRef.afterClosed().subscribe(async (result) => {
@@ -660,11 +773,13 @@ export class InventoryList implements OnInit, OnDestroy {
             expirationDate: result.expirationDate,
             purchaseDate: result.purchaseDate,
             price: result.price,
-            notes: result.notes
+            notes: result.notes,
           });
 
           // Update main item's expiration date to earliest batch expiration
-          const earliestExpiration = await this.inventoryService.getEarliestBatchExpiration(item.id!);
+          const earliestExpiration = await this.inventoryService.getEarliestBatchExpiration(
+            item.id!,
+          );
           const totalQuantity = await this.inventoryService.getTotalBatchQuantity(item.id!);
 
           // Update item with new totals
@@ -673,7 +788,7 @@ export class InventoryList implements OnInit, OnDestroy {
             quantity: totalQuantity,
             expirationDate: earliestExpiration || item.expirationDate,
             purchaseDate: result.purchaseDate,
-            price: result.price || item.price
+            price: result.price || item.price,
           });
 
           this.errorHandler.showSuccess(`✓ Refilled ${item.name}`);
@@ -690,14 +805,14 @@ export class InventoryList implements OnInit, OnDestroy {
 
     try {
       const batches = await this.inventoryService.getBatches(item.id);
-      
+
       this.dialog.open(ViewBatchesDialogComponent, {
         width: '90%',
         maxWidth: '600px',
         data: {
           item,
-          batches
-        }
+          batches,
+        },
       });
     } catch (error) {
       this.errorHandler.handleDataError('load batches', error);
@@ -705,11 +820,11 @@ export class InventoryList implements OnInit, OnDestroy {
   }
 
   get expiredCount(): number {
-    return this.items.filter(item => this.getItemStatus(item) === 'expired').length;
+    return this.items.filter((item) => this.getItemStatus(item) === 'expired').length;
   }
 
   get expiringSoonCount(): number {
-    return this.items.filter(item => this.getItemStatus(item) === 'expiring-soon').length;
+    return this.items.filter((item) => this.getItemStatus(item) === 'expiring-soon').length;
   }
 
   viewImage(item: InventoryItem) {
@@ -719,11 +834,11 @@ export class InventoryList implements OnInit, OnDestroy {
     const dialogRef = this.dialog.open(ImagePreviewDialog, {
       data: {
         imageUrl: imageUrl,
-        itemName: item.name
+        itemName: item.name,
       },
       maxWidth: '90vw',
       maxHeight: '90vh',
-      panelClass: 'image-preview-dialog'
+      panelClass: 'image-preview-dialog',
     });
   }
 }
@@ -732,12 +847,7 @@ export class InventoryList implements OnInit, OnDestroy {
 @Component({
   selector: 'image-preview-dialog',
   standalone: true,
-  imports: [
-    CommonModule,
-    MatDialogModule,
-    MatButtonModule,
-    MatIconModule
-  ],
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule],
   template: `
     <div class="image-preview-container">
       <div class="preview-header">
@@ -747,46 +857,48 @@ export class InventoryList implements OnInit, OnDestroy {
         </button>
       </div>
       <mat-dialog-content>
-        <img [src]="data.imageUrl" [alt]="data.itemName">
+        <img [src]="data.imageUrl" [alt]="data.itemName" />
       </mat-dialog-content>
     </div>
   `,
-  styles: [`
-    .image-preview-container {
-      display: flex;
-      flex-direction: column;
-      max-height: 90vh;
-    }
-
-    .preview-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-
-      h2 {
-        margin: 0;
-        font-size: 1.25rem;
-        font-weight: 500;
+  styles: [
+    `
+      .image-preview-container {
+        display: flex;
+        flex-direction: column;
+        max-height: 90vh;
       }
-    }
 
-    mat-dialog-content {
-      padding: 0 !important;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      background: #000;
+      .preview-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.12);
 
-      img {
-        max-width: 100%;
-        max-height: calc(90vh - 80px);
-        object-fit: contain;
+        h2 {
+          margin: 0;
+          font-size: 1.25rem;
+          font-weight: 500;
+        }
       }
-    }
-  `]
+
+      mat-dialog-content {
+        padding: 0 !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: #000;
+
+        img {
+          max-width: 100%;
+          max-height: calc(90vh - 80px);
+          object-fit: contain;
+        }
+      }
+    `,
+  ],
 })
 export class ImagePreviewDialog {
   constructor(@Inject(MAT_DIALOG_DATA) public data: { imageUrl: string; itemName: string }) {}
@@ -796,12 +908,7 @@ export class ImagePreviewDialog {
 @Component({
   selector: 'empty-item-confirmation-dialog',
   standalone: true,
-  imports: [
-    CommonModule,
-    MatDialogModule,
-    MatButtonModule,
-    MatIconModule
-  ],
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule],
   template: `
     <div class="empty-item-dialog">
       <div class="dialog-header">
@@ -814,7 +921,9 @@ export class ImagePreviewDialog {
         </button>
       </div>
       <mat-dialog-content>
-        <p><strong>{{ data.itemName }}</strong> is now out of stock.</p>
+        <p>
+          <strong>{{ data.itemName }}</strong> is now out of stock.
+        </p>
         <p>What would you like to do?</p>
       </mat-dialog-content>
       <mat-dialog-actions align="end">
@@ -829,65 +938,67 @@ export class ImagePreviewDialog {
       </mat-dialog-actions>
     </div>
   `,
-  styles: [`
-    .empty-item-dialog {
-      padding: 1rem;
-      
-      .dialog-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-        
-        h2 {
+  styles: [
+    `
+      .empty-item-dialog {
+        padding: 1rem;
+
+        .dialog-header {
           display: flex;
+          justify-content: space-between;
           align-items: center;
+          margin-bottom: 1rem;
+
+          h2 {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0;
+            padding-left: 0;
+
+            mat-icon {
+              color: var(--mat-warn-color);
+            }
+          }
+
+          button {
+            margin: -0.5rem -0.5rem 0 0;
+          }
+        }
+
+        mat-dialog-content {
+          padding: 1rem 0;
+
+          p {
+            margin: 0.5rem 0;
+
+            &:first-child {
+              font-size: 1rem;
+            }
+
+            strong {
+              color: var(--mat-primary-color);
+            }
+          }
+        }
+
+        mat-dialog-actions {
           gap: 0.5rem;
-          margin: 0;
-          padding-left: 0;
-          
-          mat-icon {
-            color: var(--mat-warn-color);
-          }
-        }
-        
-        button {
-          margin: -0.5rem -0.5rem 0 0;
-        }
-      }
-      
-      mat-dialog-content {
-        padding: 1rem 0;
-        
-        p {
-          margin: 0.5rem 0;
-          
-          &:first-child {
-            font-size: 1rem;
-          }
-          
-          strong {
-            color: var(--mat-primary-color);
+          padding: 1.5rem 0 0;
+
+          button {
+            mat-icon {
+              margin-right: 0.25rem;
+              font-size: 1.25rem;
+              width: 1.25rem;
+              height: 1.25rem;
+              vertical-align: middle;
+            }
           }
         }
       }
-      
-      mat-dialog-actions {
-        gap: 0.5rem;
-        padding: 1.5rem 0 0;
-        
-        button {
-          mat-icon {
-            margin-right: 0.25rem;
-            font-size: 1.25rem;
-            width: 1.25rem;
-            height: 1.25rem;
-            vertical-align: middle;
-          }
-        }
-      }
-    }
-  `]
+    `,
+  ],
 })
 export class EmptyItemConfirmationDialog {
   constructor(@Inject(MAT_DIALOG_DATA) public data: { itemName: string }) {}
