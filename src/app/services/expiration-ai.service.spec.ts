@@ -89,6 +89,25 @@ describe('ExpirationAIService', () => {
     expect(caught!.message.toLowerCase()).toContain('limit');
   });
 
+  it('translates upstream rate-limit errors into a retry-soon message', async () => {
+    const pending = service.suggestExpiration({ itemName: 'Milk' });
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/ai/expiration-suggest'));
+    req.flush(
+      { error: { code: 'RATE_LIMITED', message: 'upstream rate limit' } },
+      { status: 429, statusText: 'Too Many Requests' },
+    );
+    let caught: Error | null = null;
+    try {
+      await pending;
+    } catch (e) {
+      caught = e as Error;
+    }
+    expect(caught).toBeTruthy();
+    expect(caught!.message.toLowerCase()).not.toContain('limit');
+    expect(caught!.message.toLowerCase()).toContain('busy');
+  });
+
   it('translates 500 errors into a generic unavailable message', async () => {
     const pending = service.suggestExpiration({ itemName: 'Milk' });
     await flushMicrotasks();

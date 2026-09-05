@@ -48,6 +48,16 @@ export async function chat(req: ChatRequest): Promise<string> {
     // Never leak upstream error bodies to the client (audit M7, M8, M9).
     const upstream = await res.text().catch(() => '');
     console.error('[openai] upstream error', res.status, upstream);
+    // OpenAI's own per-minute token/request limits are common on back-to-back
+    // vision requests (each `detail: high` image is expensive) and are
+    // transient - distinguish them from a genuine outage so callers can tell
+    // users to retry shortly instead of reporting a hard failure.
+    if (res.status === 429) {
+      throw new ApiError(
+        'RATE_LIMITED',
+        'AI provider rate limit reached; please retry shortly',
+      );
+    }
     throw new ApiError(
       'INTERNAL',
       'AI service is temporarily unavailable',

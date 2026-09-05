@@ -28,11 +28,7 @@ export class ImageService {
   private readonly api = inject(ApiClient);
 
   private readonly MAX_BYTES = 5 * 1024 * 1024;
-  private readonly ALLOWED_TYPES = new Set([
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-  ]);
+  private readonly ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
   // Open the device camera or file picker. If a File is already in hand the
   // caller can pass it directly; otherwise we pop a hidden <input> to acquire
@@ -70,29 +66,81 @@ export class ImageService {
   }
 
   async uploadFile(file: File, scope: 'items' | 'receipts'): Promise<string | null> {
-    if (!this.ALLOWED_TYPES.has(file.type)) {
+    if (file.size > 25 * 1024 * 1024) {
+      throw new Error('Image is too large.');
+    }
+    const normalized = await this.normalizeImage(file);
+    if (!this.ALLOWED_TYPES.has(normalized.type)) {
       throw new Error('Only JPEG, PNG and WebP images are supported.');
     }
-    if (file.size > this.MAX_BYTES) {
+    if (normalized.size > this.MAX_BYTES) {
       throw new Error('Image must be 5 MB or smaller.');
     }
 
-    const ext = this.extFromType(file.type);
+    const ext = this.extFromType(normalized.type);
     const sign = await this.api.post<SignedUpload>('/api/uploads/sign', {
       scope,
-      contentType: file.type,
+      contentType: normalized.type,
       ext,
     });
 
     const res = await fetch(sign.signedUrl, {
       method: 'PUT',
-      headers: { 'Content-Type': file.type },
-      body: file,
+      headers: { 'Content-Type': normalized.type },
+      body: normalized,
     });
     if (!res.ok) {
       throw new Error(`Upload failed (HTTP ${res.status})`);
     }
     return sign.path;
+  }
+
+  // Camera-captured photos vary wildly in reported MIME type and actual
+  // encoding across devices/browsers - a frequent source of server-side
+  // "MIME does not match contents" rejections (see api/_routes/ai/receipt-scan.ts).
+  // Re-encoding through a canvas guarantees the bytes we upload are genuinely
+  // JPEG regardless of what the OS/browser claimed, normalizes EXIF rotation,
+  // and downsizes oversized camera photos against the upload cap. Falls back
+  // to the original file if the browser can't decode or re-encode it, so a
+  // capable-but-slightly-unusual image is never blocked outright.
+  private async normalizeImage(file: File): Promise<File> {
+    let bitmap: ImageBitmap;
+    try {
+      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    } catch {
+      return file;
+    }
+
+    try {
+      const MAX_DIMENSION = 2000;
+      const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+      const width = Math.round(bitmap.width * scale);
+      const height = Math.round(bitmap.height * scale);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return file;
+      ctx.drawImage(bitmap, 0, 0, width, height);
+
+      // Step quality down until the result fits the upload cap; a handful of
+      // attempts is enough in practice and keeps this bounded.
+      let quality = 0.9;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, 'image/jpeg', quality),
+        );
+        if (!blob) return file;
+        if (blob.size <= this.MAX_BYTES || attempt === 3) {
+          return new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+        }
+        quality -= 0.2;
+      }
+      return file;
+    } finally {
+      bitmap.close();
+    }
   }
 
   async deleteImage(_imagePath: string): Promise<boolean> {

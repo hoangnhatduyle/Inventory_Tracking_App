@@ -15,7 +15,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatBottomSheet, MatBottomSheetModule } from '@angular/material/bottom-sheet';
-import { MatDialog, MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
+import {
+  MatDialog,
+  MatDialogRef,
+  MAT_DIALOG_DATA,
+  MatDialogModule,
+} from '@angular/material/dialog';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDatepickerModule, MatDatepickerInputEvent } from '@angular/material/datepicker';
@@ -32,10 +37,13 @@ import { Category, Location, InventoryItem } from '../../models/inventory.model'
 import { toLocalDateString, parseLocalDate } from '../../utils/date.utils';
 import { CategorySelectorComponent } from '../item-form/category-selector.component';
 import { LocationSelectorComponent } from '../item-form/location-selector.component';
-import { AISuggestionDialogComponent, AISuggestionDialogData } from '../item-form/ai-suggestion-dialog.component';
+import {
+  AISuggestionDialogComponent,
+  AISuggestionDialogData,
+} from '../item-form/ai-suggestion-dialog.component';
 
 interface ReviewItem {
-  included: boolean;          // includes item in final add
+  included: boolean; // includes item in final add
   name: string;
   quantity: number;
   unit: string;
@@ -44,11 +52,11 @@ interface ReviewItem {
   categoryId: number;
   // Matches manual add form fields
   locationId: number;
-  purchaseDate: string;           // YYYY-MM-DD — source of truth
-  expirationDate: string;         // YYYY-MM-DD — source of truth
-  purchaseDateLocal: Date | null;     // stable Date object for matDatepicker [ngModel]
-  expirationDateLocal: Date | null;   // stable Date object for matDatepicker [ngModel]
-  expireAmount: number;       // e.g., 7
+  purchaseDate: string; // YYYY-MM-DD — source of truth
+  expirationDate: string; // YYYY-MM-DD — source of truth
+  purchaseDateLocal: Date | null; // stable Date object for matDatepicker [ngModel]
+  expirationDateLocal: Date | null; // stable Date object for matDatepicker [ngModel]
+  expireAmount: number; // e.g., 7
   expireUnit: 'days' | 'weeks' | 'months' | 'years';
   notes: string;
   notificationEnabled: boolean;
@@ -79,39 +87,48 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
     MatNativeDateModule,
     MatButtonToggleModule,
     MatTooltipModule,
-    MatChipsModule
+    MatChipsModule,
   ],
   template: `
     <div class="receipt-scan-container">
-
       <!-- Header -->
       <div class="scan-header">
-        <button mat-icon-button (click)="step === 'item-wizard' ? goBack() : onBack()" [disabled]="step === 'item-wizard' && isFirstItem">
+        <button
+          mat-icon-button
+          (click)="step === 'item-wizard' ? goBack() : onBack()"
+          [disabled]="step === 'item-wizard' && isFirstItem"
+        >
           <mat-icon>arrow_back</mat-icon>
         </button>
         <h1>Scan Receipt</h1>
         @if (step === 'item-wizard') {
-        <div class="step-indicator">
-          @if (reviewMode === 'wizard') {
-          <span class="step-count">
-            Item {{ currentItemIndex + 1 }} / {{ reviewItems.length }}
-            @if (!currentItem.included) { <span class="skipped-label"> · Skipped</span> }
-          </span>
-          }
-          @if (reviewMode === 'table') {
-          <span class="step-count">
-            {{ includedCount }} of {{ reviewItems.length }} items to add
-          </span>
-          }
-          <mat-button-toggle-group [value]="reviewMode" (change)="selectMode($event.value)" class="mode-toggle">
-            <mat-button-toggle value="wizard" [matTooltip]="'Item Wizard'">
-              <mat-icon>view_carousel</mat-icon>
-            </mat-button-toggle>
-            <mat-button-toggle value="table" [matTooltip]="'Table View'">
-              <mat-icon>table_rows</mat-icon>
-            </mat-button-toggle>
-          </mat-button-toggle-group>
-        </div>
+          <div class="step-indicator">
+            @if (reviewMode === 'wizard') {
+              <span class="step-count">
+                Item {{ currentItemIndex + 1 }} / {{ reviewItems.length }}
+                @if (!currentItem.included) {
+                  <span class="skipped-label"> · Skipped</span>
+                }
+              </span>
+            }
+            @if (reviewMode === 'table') {
+              <span class="step-count">
+                {{ includedCount }} of {{ reviewItems.length }} items to add
+              </span>
+            }
+            <mat-button-toggle-group
+              [value]="reviewMode"
+              (change)="selectMode($event.value)"
+              class="mode-toggle"
+            >
+              <mat-button-toggle value="wizard" [matTooltip]="'Item Wizard'">
+                <mat-icon>view_carousel</mat-icon>
+              </mat-button-toggle>
+              <mat-button-toggle value="table" [matTooltip]="'Table View'">
+                <mat-icon>table_rows</mat-icon>
+              </mat-button-toggle>
+            </mat-button-toggle-group>
+          </div>
         }
       </div>
 
@@ -136,9 +153,12 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
 
         <mat-form-field appearance="outline" class="full-width receipt-date-field">
           <mat-label>Receipt Date</mat-label>
-          <input matInput [matDatepicker]="receiptDatePicker"
+          <input
+            matInput
+            [matDatepicker]="receiptDatePicker"
             [(ngModel)]="receiptDate"
-            [max]="todayDate">
+            [max]="todayDate"
+          />
           <mat-datepicker-toggle matSuffix [for]="receiptDatePicker"></mat-datepicker-toggle>
           <mat-datepicker #receiptDatePicker></mat-datepicker>
         </mat-form-field>
@@ -154,7 +174,12 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
       <!-- Step: Mode Selection -->
       <div *ngIf="step === 'mode-select'" class="step-mode-select">
         <h2>How would you like to review your items?</h2>
-        <p class="mode-hint">We found <strong>{{ reviewItems.length }}</strong> item{{ reviewItems.length !== 1 ? 's' : '' }} on your receipt.</p>
+        <p class="mode-hint">
+          We found <strong>{{ reviewItems.length }}</strong> item{{
+            reviewItems.length !== 1 ? 's' : ''
+          }}
+          on your receipt.
+        </p>
 
         <div class="mode-options">
           <div class="mode-card wizard-mode" (click)="selectMode('wizard')">
@@ -175,426 +200,621 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
       <div *ngIf="step === 'item-wizard'" class="step-item-wizard">
         <!-- Wizard Mode -->
         @if (reviewMode === 'wizard') {
-        <!-- Progress bar -->
-        <mat-progress-bar mode="determinate" [value]="(currentItemIndex + 1) / reviewItems.length * 100" class="wizard-progress"></mat-progress-bar>
+          <!-- Progress bar -->
+          <mat-progress-bar
+            mode="determinate"
+            [value]="((currentItemIndex + 1) / reviewItems.length) * 100"
+            class="wizard-progress"
+          ></mat-progress-bar>
 
-        <!-- Item card -->
-        <div class="wizard-card">
-          @if (!currentItem.included) {
-          <div class="skipped-banner">
-            <mat-icon>do_not_disturb</mat-icon>
-            <span>This item is marked as skipped — it won't be added to inventory.</span>
-            <button mat-button color="primary" (click)="includeCurrentItem()">Un-skip</button>
-          </div>
-          }
-
-          <div class="wizard-item-header">
-            <span class="item-progress">Item {{ currentItemIndex + 1 }} of {{ reviewItems.length }}</span>
-            <button mat-icon-button (click)="skipItem()" class="skip-btn">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-
-          <!-- Basic Information Section -->
-          <div class="wizard-section">
-            <h3 class="wizard-section-title">
-              <mat-icon>info</mat-icon>
-              Basic Information
-            </h3>
-
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Item Name</mat-label>
-              <input matInput [(ngModel)]="currentItem.name" required>
-            </mat-form-field>
-
-            <div class="form-row">
-              <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>Quantity</mat-label>
-                <input matInput type="number" [(ngModel)]="currentItem.quantity" min="1">
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="flex-2">
-                <mat-label>Unit</mat-label>
-                <mat-select [(ngModel)]="currentItem.unit">
-                  <mat-option value="piece">piece</mat-option>
-                  <mat-option value="kg">kg</mat-option>
-                  <mat-option value="g">g</mat-option>
-                  <mat-option value="lbs">lbs</mat-option>
-                  <mat-option value="oz">oz</mat-option>
-                  <mat-option value="liter">liter</mat-option>
-                  <mat-option value="ml">ml</mat-option>
-                  <mat-option value="pack">pack</mat-option>
-                  <mat-option value="box">box</mat-option>
-                  <mat-option value="can">can</mat-option>
-                  <mat-option value="bottle">bottle</mat-option>
-                  <mat-option value="bag">bag</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-          </div>
-
-          <!-- Storage & Price Section -->
-          <div class="wizard-section">
-            <h3 class="wizard-section-title">
-              <mat-icon>location_on</mat-icon>
-              Storage & Price
-            </h3>
-
-            <div class="selector-field" (click)="openLocationSelector(currentItem)">
-              <div class="selector-label">
-                <mat-icon>kitchen</mat-icon>
-                <span>Storage Location</span>
+          <!-- Item card -->
+          <div class="wizard-card">
+            @if (!currentItem.included) {
+              <div class="skipped-banner">
+                <mat-icon>do_not_disturb</mat-icon>
+                <span>This item is marked as skipped — it won't be added to inventory.</span>
+                <button mat-button color="primary" (click)="includeCurrentItem()">Un-skip</button>
               </div>
-              <div class="selector-value">
-                <span *ngIf="getLocationName(currentItem.locationId)">{{ getLocationName(currentItem.locationId) }}</span>
-                <mat-icon>chevron_right</mat-icon>
-              </div>
-            </div>
+            }
 
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Total Price ($)</mat-label>
-              <input matInput type="number" [(ngModel)]="currentItem.totalPrice" min="0" step="0.01" placeholder="Total for this quantity">
-            </mat-form-field>
-          </div>
-
-          <!-- Category Section -->
-          <div class="wizard-section">
-            <h3 class="wizard-section-title">
-              <mat-icon>category</mat-icon>
-              Category
-            </h3>
-
-            <div class="selector-field" (click)="openCategorySelector(currentItem)">
-              <div class="selector-label">
-                <mat-icon>label</mat-icon>
-                <span>Category</span>
-              </div>
-              <div class="selector-value">
-                <span *ngIf="currentItem.categoryHint">{{ currentItem.categoryHint }}</span>
-                <mat-icon>chevron_right</mat-icon>
-              </div>
-            </div>
-          </div>
-
-          <!-- Dates Section -->
-          <div class="wizard-section">
-            <h3 class="wizard-section-title">
-              <mat-icon>event</mat-icon>
-              Dates
-            </h3>
-
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Purchase Date</mat-label>
-              <input matInput [matDatepicker]="purchasePicker"
-                     [ngModel]="currentItem.purchaseDateLocal"
-                     (dateChange)="onPurchaseDateChange($event, currentItem)"
-                     readonly>
-              <mat-datepicker-toggle matSuffix [for]="purchasePicker"></mat-datepicker-toggle>
-              <mat-datepicker #purchasePicker></mat-datepicker>
-            </mat-form-field>
-
-            <div class="expiry-controls">
-              <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>Expires in</mat-label>
-                <input matInput type="number" [(ngModel)]="currentItem.expireAmount"
-                       (ngModelChange)="updateExpirationDate(currentItem)" min="0">
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>Unit</mat-label>
-                <mat-select [(ngModel)]="currentItem.expireUnit"
-                            (ngModelChange)="updateExpirationDate(currentItem)">
-                  <mat-option value="days">Days</mat-option>
-                  <mat-option value="weeks">Weeks</mat-option>
-                  <mat-option value="months">Months</mat-option>
-                  <mat-option value="years">Years</mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <button mat-button (click)="onAISuggest(currentItem)" [disabled]="isLoadingAI || !currentItem.name.trim()" color="accent" class="ai-btn">
-                <mat-icon>{{ isLoadingAI ? 'hourglass_empty' : 'lightbulb' }}</mat-icon>
-                {{ isLoadingAI ? 'Suggesting...' : 'AI' }}
+            <div class="wizard-item-header">
+              <span class="item-progress"
+                >Item {{ currentItemIndex + 1 }} of {{ reviewItems.length }}</span
+              >
+              <button mat-icon-button (click)="skipItem()" class="skip-btn">
+                <mat-icon>close</mat-icon>
               </button>
             </div>
 
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Expiration Date</mat-label>
-              <input matInput [matDatepicker]="expiryPicker"
-                     [ngModel]="currentItem.expirationDateLocal"
-                     (dateChange)="onExpiryDateChange($event, currentItem)"
-                     readonly>
-              <mat-datepicker-toggle matSuffix [for]="expiryPicker"></mat-datepicker-toggle>
-              <mat-datepicker #expiryPicker></mat-datepicker>
-            </mat-form-field>
-          </div>
+            <!-- Basic Information Section -->
+            <div class="wizard-section">
+              <h3 class="wizard-section-title">
+                <mat-icon>info</mat-icon>
+                Basic Information
+              </h3>
 
-          <!-- Notes Section -->
-          <div class="wizard-section">
-            <h3 class="wizard-section-title">
-              <mat-icon>notes</mat-icon>
-              Notes
-            </h3>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Item Name</mat-label>
+                <input matInput [(ngModel)]="currentItem.name" required />
+              </mat-form-field>
 
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Notes (Optional)</mat-label>
-              <textarea matInput [(ngModel)]="currentItem.notes" rows="2"></textarea>
-            </mat-form-field>
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>Quantity</mat-label>
+                  <input matInput type="number" [(ngModel)]="currentItem.quantity" min="1" />
+                </mat-form-field>
 
-            <div class="notification-toggle">
-              <div class="toggle-info">
-                <mat-icon>notifications</mat-icon>
-                <span>Enable Notifications</span>
+                <mat-form-field appearance="outline" class="flex-2">
+                  <mat-label>Unit</mat-label>
+                  <mat-select [(ngModel)]="currentItem.unit">
+                    <mat-option value="piece">piece</mat-option>
+                    <mat-option value="kg">kg</mat-option>
+                    <mat-option value="g">g</mat-option>
+                    <mat-option value="lbs">lbs</mat-option>
+                    <mat-option value="oz">oz</mat-option>
+                    <mat-option value="liter">liter</mat-option>
+                    <mat-option value="ml">ml</mat-option>
+                    <mat-option value="pack">pack</mat-option>
+                    <mat-option value="box">box</mat-option>
+                    <mat-option value="can">can</mat-option>
+                    <mat-option value="bottle">bottle</mat-option>
+                    <mat-option value="bag">bag</mat-option>
+                  </mat-select>
+                </mat-form-field>
               </div>
-              <mat-slide-toggle [(ngModel)]="currentItem.notificationEnabled" color="primary"></mat-slide-toggle>
+            </div>
+
+            <!-- Storage & Price Section -->
+            <div class="wizard-section">
+              <h3 class="wizard-section-title">
+                <mat-icon>location_on</mat-icon>
+                Storage & Price
+              </h3>
+
+              <div class="selector-field" (click)="openLocationSelector(currentItem)">
+                <div class="selector-label">
+                  <mat-icon>kitchen</mat-icon>
+                  <span>Storage Location</span>
+                </div>
+                <div class="selector-value">
+                  <span *ngIf="getLocationName(currentItem.locationId)">{{
+                    getLocationName(currentItem.locationId)
+                  }}</span>
+                  <mat-icon>chevron_right</mat-icon>
+                </div>
+              </div>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Total Price ($)</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  [(ngModel)]="currentItem.totalPrice"
+                  min="0"
+                  step="0.01"
+                  placeholder="Total for this quantity"
+                />
+              </mat-form-field>
+            </div>
+
+            <!-- Category Section -->
+            <div class="wizard-section">
+              <h3 class="wizard-section-title">
+                <mat-icon>category</mat-icon>
+                Category
+              </h3>
+
+              <div class="selector-field" (click)="openCategorySelector(currentItem)">
+                <div class="selector-label">
+                  <mat-icon>label</mat-icon>
+                  <span>Category</span>
+                </div>
+                <div class="selector-value">
+                  <span *ngIf="currentItem.categoryHint">{{ currentItem.categoryHint }}</span>
+                  <mat-icon>chevron_right</mat-icon>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dates Section -->
+            <div class="wizard-section">
+              <h3 class="wizard-section-title">
+                <mat-icon>event</mat-icon>
+                Dates
+              </h3>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Purchase Date</mat-label>
+                <input
+                  matInput
+                  [matDatepicker]="purchasePicker"
+                  [ngModel]="currentItem.purchaseDateLocal"
+                  (dateChange)="onPurchaseDateChange($event, currentItem)"
+                  readonly
+                />
+                <mat-datepicker-toggle matSuffix [for]="purchasePicker"></mat-datepicker-toggle>
+                <mat-datepicker #purchasePicker></mat-datepicker>
+              </mat-form-field>
+
+              <div class="expiry-controls">
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>Expires in</mat-label>
+                  <input
+                    matInput
+                    type="number"
+                    [(ngModel)]="currentItem.expireAmount"
+                    (ngModelChange)="updateExpirationDate(currentItem)"
+                    min="0"
+                  />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>Unit</mat-label>
+                  <mat-select
+                    [(ngModel)]="currentItem.expireUnit"
+                    (ngModelChange)="updateExpirationDate(currentItem)"
+                  >
+                    <mat-option value="days">Days</mat-option>
+                    <mat-option value="weeks">Weeks</mat-option>
+                    <mat-option value="months">Months</mat-option>
+                    <mat-option value="years">Years</mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <button
+                  mat-button
+                  (click)="onAISuggest(currentItem)"
+                  [disabled]="isLoadingAI || !currentItem.name.trim()"
+                  color="accent"
+                  class="ai-btn"
+                >
+                  <mat-icon>{{ isLoadingAI ? 'hourglass_empty' : 'lightbulb' }}</mat-icon>
+                  {{ isLoadingAI ? 'Suggesting...' : 'AI' }}
+                </button>
+              </div>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Expiration Date</mat-label>
+                <input
+                  matInput
+                  [matDatepicker]="expiryPicker"
+                  [ngModel]="currentItem.expirationDateLocal"
+                  (dateChange)="onExpiryDateChange($event, currentItem)"
+                  readonly
+                />
+                <mat-datepicker-toggle matSuffix [for]="expiryPicker"></mat-datepicker-toggle>
+                <mat-datepicker #expiryPicker></mat-datepicker>
+              </mat-form-field>
+            </div>
+
+            <!-- Notes Section -->
+            <div class="wizard-section">
+              <h3 class="wizard-section-title">
+                <mat-icon>notes</mat-icon>
+                Notes
+              </h3>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Notes (Optional)</mat-label>
+                <textarea matInput [(ngModel)]="currentItem.notes" rows="2"></textarea>
+              </mat-form-field>
+
+              <div class="notification-toggle">
+                <div class="toggle-info">
+                  <mat-icon>notifications</mat-icon>
+                  <span>Enable Notifications</span>
+                </div>
+                <mat-slide-toggle
+                  [(ngModel)]="currentItem.notificationEnabled"
+                  color="primary"
+                ></mat-slide-toggle>
+              </div>
             </div>
           </div>
-        </div>
         }
 
         <!-- Table Mode -->
         @if (reviewMode === 'table') {
-        <div class="table-view-container">
-          <div class="table-wrapper">
-            <table class="items-table">
-              <thead>
-                <tr>
-                  <th class="col-include">Include</th>
-                  <th class="col-name">Name</th>
-                  <th class="col-qty">Qty</th>
-                  <th class="col-unit">Unit</th>
-                  <th class="col-price">Price ($)</th>
-                  <th class="col-category">Category</th>
-                  <th class="col-location">Location</th>
-                  <th class="col-purchase">Purchase</th>
-                  <th class="col-expire-in">Expires In</th>
-                  <th class="col-expiry">Expiry</th>
-                  <th class="col-notes">Notes</th>
-                  <th class="col-notify">Notify</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (item of reviewItems; let idx = $index; track idx) {
-                <tr [class.row-skipped]="!item.included">
-                  <!-- Include/Skip -->
-                  <td class="col-include">
-                    <mat-chip-set>
-                      <mat-chip [class.included]="item.included" [class.skipped]="!item.included" (click)="toggleItemInclusion(item)" class="skip-chip">
-                        {{ item.included ? '✓' : '✕' }}
-                      </mat-chip>
-                    </mat-chip-set>
-                  </td>
+          <div class="table-view-container">
+            <div class="table-wrapper">
+              <table class="items-table">
+                <thead>
+                  <tr>
+                    <th class="col-include">Include</th>
+                    <th class="col-name">Name</th>
+                    <th class="col-qty">Qty</th>
+                    <th class="col-unit">Unit</th>
+                    <th class="col-price">Price ($)</th>
+                    <th class="col-category">Category</th>
+                    <th class="col-location">Location</th>
+                    <th class="col-purchase">Purchase</th>
+                    <th class="col-expire-in">Expires In</th>
+                    <th class="col-expiry">Expiry</th>
+                    <th class="col-notes">Notes</th>
+                    <th class="col-notify">Notify</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of reviewItems; let idx = $index; track idx) {
+                    <tr [class.row-skipped]="!item.included">
+                      <!-- Include/Skip -->
+                      <td class="col-include">
+                        <mat-chip-set>
+                          <mat-chip
+                            [class.included]="item.included"
+                            [class.skipped]="!item.included"
+                            (click)="toggleItemInclusion(item)"
+                            class="skip-chip"
+                          >
+                            {{ item.included ? '✓' : '✕' }}
+                          </mat-chip>
+                        </mat-chip-set>
+                      </td>
 
-                  <!-- Name -->
-                  <td class="col-name" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'name'" (click)="startEdit(idx, 'name')">
-                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'name') {
-                      <div class="cell-edit">
-                        <input type="text" [(ngModel)]="editingValue" class="edit-input" (click)="$event.stopPropagation()">
-                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
-                          <mat-icon class="confirm-icon">check</mat-icon>
-                        </button>
-                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
-                          <mat-icon class="cancel-icon">close</mat-icon>
-                        </button>
-                      </div>
-                    } @else {
-                      <span class="cell-value">{{ item.name }}</span>
-                    }
-                  </td>
+                      <!-- Name -->
+                      <td
+                        class="col-name"
+                        [class.editing]="
+                          editingCell?.rowIndex === idx && editingCell?.field === 'name'
+                        "
+                        (click)="startEdit(idx, 'name')"
+                      >
+                        @if (editingCell?.rowIndex === idx && editingCell?.field === 'name') {
+                          <div class="cell-edit">
+                            <input
+                              type="text"
+                              [(ngModel)]="editingValue"
+                              class="edit-input"
+                              (click)="$event.stopPropagation()"
+                            />
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); confirmEdit()"
+                            >
+                              <mat-icon class="confirm-icon">check</mat-icon>
+                            </button>
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); cancelEdit()"
+                            >
+                              <mat-icon class="cancel-icon">close</mat-icon>
+                            </button>
+                          </div>
+                        } @else {
+                          <span class="cell-value">{{ item.name }}</span>
+                        }
+                      </td>
 
-                  <!-- Quantity -->
-                  <td class="col-qty" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'quantity'" (click)="startEdit(idx, 'quantity')">
-                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'quantity') {
-                      <div class="cell-edit">
-                        <input type="number" [(ngModel)]="editingValue" class="edit-input" (click)="$event.stopPropagation()">
-                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
-                          <mat-icon class="confirm-icon">check</mat-icon>
-                        </button>
-                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
-                          <mat-icon class="cancel-icon">close</mat-icon>
-                        </button>
-                      </div>
-                    } @else {
-                      <span class="cell-value">{{ item.quantity }}</span>
-                    }
-                  </td>
+                      <!-- Quantity -->
+                      <td
+                        class="col-qty"
+                        [class.editing]="
+                          editingCell?.rowIndex === idx && editingCell?.field === 'quantity'
+                        "
+                        (click)="startEdit(idx, 'quantity')"
+                      >
+                        @if (editingCell?.rowIndex === idx && editingCell?.field === 'quantity') {
+                          <div class="cell-edit">
+                            <input
+                              type="number"
+                              [(ngModel)]="editingValue"
+                              class="edit-input"
+                              (click)="$event.stopPropagation()"
+                            />
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); confirmEdit()"
+                            >
+                              <mat-icon class="confirm-icon">check</mat-icon>
+                            </button>
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); cancelEdit()"
+                            >
+                              <mat-icon class="cancel-icon">close</mat-icon>
+                            </button>
+                          </div>
+                        } @else {
+                          <span class="cell-value">{{ item.quantity }}</span>
+                        }
+                      </td>
 
-                  <!-- Unit -->
-                  <td class="col-unit" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'unit'" (click)="startEdit(idx, 'unit')">
-                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'unit') {
-                      <div class="cell-edit">
-                        <select [(ngModel)]="editingValue" class="edit-select" (click)="$event.stopPropagation()">
-                          <option value="piece">piece</option>
-                          <option value="kg">kg</option>
-                          <option value="g">g</option>
-                          <option value="lbs">lbs</option>
-                          <option value="oz">oz</option>
-                          <option value="liter">liter</option>
-                          <option value="ml">ml</option>
-                          <option value="pack">pack</option>
-                          <option value="box">box</option>
-                          <option value="can">can</option>
-                          <option value="bottle">bottle</option>
-                          <option value="bag">bag</option>
-                        </select>
-                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
-                          <mat-icon class="confirm-icon">check</mat-icon>
-                        </button>
-                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
-                          <mat-icon class="cancel-icon">close</mat-icon>
-                        </button>
-                      </div>
-                    } @else {
-                      <span class="cell-value">{{ item.unit }}</span>
-                    }
-                  </td>
+                      <!-- Unit -->
+                      <td
+                        class="col-unit"
+                        [class.editing]="
+                          editingCell?.rowIndex === idx && editingCell?.field === 'unit'
+                        "
+                        (click)="startEdit(idx, 'unit')"
+                      >
+                        @if (editingCell?.rowIndex === idx && editingCell?.field === 'unit') {
+                          <div class="cell-edit">
+                            <select
+                              [(ngModel)]="editingValue"
+                              class="edit-select"
+                              (click)="$event.stopPropagation()"
+                            >
+                              <option value="piece">piece</option>
+                              <option value="kg">kg</option>
+                              <option value="g">g</option>
+                              <option value="lbs">lbs</option>
+                              <option value="oz">oz</option>
+                              <option value="liter">liter</option>
+                              <option value="ml">ml</option>
+                              <option value="pack">pack</option>
+                              <option value="box">box</option>
+                              <option value="can">can</option>
+                              <option value="bottle">bottle</option>
+                              <option value="bag">bag</option>
+                            </select>
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); confirmEdit()"
+                            >
+                              <mat-icon class="confirm-icon">check</mat-icon>
+                            </button>
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); cancelEdit()"
+                            >
+                              <mat-icon class="cancel-icon">close</mat-icon>
+                            </button>
+                          </div>
+                        } @else {
+                          <span class="cell-value">{{ item.unit }}</span>
+                        }
+                      </td>
 
-                  <!-- Price -->
-                  <td class="col-price" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'totalPrice'" (click)="startEdit(idx, 'totalPrice')">
-                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'totalPrice') {
-                      <div class="cell-edit">
-                        <input type="number" [(ngModel)]="editingValue" class="edit-input" (click)="$event.stopPropagation()">
-                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
-                          <mat-icon class="confirm-icon">check</mat-icon>
-                        </button>
-                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
-                          <mat-icon class="cancel-icon">close</mat-icon>
-                        </button>
-                      </div>
-                    } @else {
-                      <span class="cell-value">{{ '$' }}{{ item.totalPrice | number: '1.2-2' }}</span>
-                    }
-                  </td>
+                      <!-- Price -->
+                      <td
+                        class="col-price"
+                        [class.editing]="
+                          editingCell?.rowIndex === idx && editingCell?.field === 'totalPrice'
+                        "
+                        (click)="startEdit(idx, 'totalPrice')"
+                      >
+                        @if (editingCell?.rowIndex === idx && editingCell?.field === 'totalPrice') {
+                          <div class="cell-edit">
+                            <input
+                              type="number"
+                              [(ngModel)]="editingValue"
+                              class="edit-input"
+                              (click)="$event.stopPropagation()"
+                            />
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); confirmEdit()"
+                            >
+                              <mat-icon class="confirm-icon">check</mat-icon>
+                            </button>
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); cancelEdit()"
+                            >
+                              <mat-icon class="cancel-icon">close</mat-icon>
+                            </button>
+                          </div>
+                        } @else {
+                          <span class="cell-value"
+                            >{{ '$' }}{{ item.totalPrice | number: '1.2-2' }}</span
+                          >
+                        }
+                      </td>
 
-                  <!-- Category -->
-                  <td class="col-category">
-                    <span class="cell-value cell-selector" (click)="$event.stopPropagation(); openCategorySelector(item)">
-                      {{ item.categoryHint }} <mat-icon>edit</mat-icon>
-                    </span>
-                  </td>
+                      <!-- Category -->
+                      <td class="col-category">
+                        <span
+                          class="cell-value cell-selector"
+                          (click)="$event.stopPropagation(); openCategorySelector(item)"
+                        >
+                          {{ item.categoryHint }} <mat-icon>edit</mat-icon>
+                        </span>
+                      </td>
 
-                  <!-- Location -->
-                  <td class="col-location">
-                    <span class="cell-value cell-selector" (click)="$event.stopPropagation(); openLocationSelector(item)">
-                      {{ getLocationName(item.locationId) }} <mat-icon>edit</mat-icon>
-                    </span>
-                  </td>
+                      <!-- Location -->
+                      <td class="col-location">
+                        <span
+                          class="cell-value cell-selector"
+                          (click)="$event.stopPropagation(); openLocationSelector(item)"
+                        >
+                          {{ getLocationName(item.locationId) }} <mat-icon>edit</mat-icon>
+                        </span>
+                      </td>
 
-                  <!-- Purchase Date -->
-                  <td class="col-purchase editable-cell" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'purchaseDate'" (click)="startEdit(idx, 'purchaseDate')">
-                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'purchaseDate') {
-                      <div class="cell-edit">
-                        <input matInput type="date" [(ngModel)]="editingValue" class="edit-input" [max]="today" (click)="$event.stopPropagation()">
-                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
-                          <mat-icon class="confirm-icon">check</mat-icon>
-                        </button>
-                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
-                          <mat-icon class="cancel-icon">close</mat-icon>
-                        </button>
-                      </div>
-                    } @else {
-                      <span class="cell-value">{{ item.purchaseDate }}</span>
-                      <mat-icon class="edit-indicator">edit</mat-icon>
-                    }
-                  </td>
+                      <!-- Purchase Date -->
+                      <td
+                        class="col-purchase editable-cell"
+                        [class.editing]="
+                          editingCell?.rowIndex === idx && editingCell?.field === 'purchaseDate'
+                        "
+                        (click)="startEdit(idx, 'purchaseDate')"
+                      >
+                        @if (
+                          editingCell?.rowIndex === idx && editingCell?.field === 'purchaseDate'
+                        ) {
+                          <div class="cell-edit">
+                            <input
+                              matInput
+                              type="date"
+                              [(ngModel)]="editingValue"
+                              class="edit-input"
+                              [max]="today"
+                              (click)="$event.stopPropagation()"
+                            />
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); confirmEdit()"
+                            >
+                              <mat-icon class="confirm-icon">check</mat-icon>
+                            </button>
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); cancelEdit()"
+                            >
+                              <mat-icon class="cancel-icon">close</mat-icon>
+                            </button>
+                          </div>
+                        } @else {
+                          <span class="cell-value">{{ item.purchaseDate }}</span>
+                          <mat-icon class="edit-indicator">edit</mat-icon>
+                        }
+                      </td>
 
-                  <!-- Expire Amount -->
-                  <td class="col-expire-in editable-cell" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'expireAmount'" (click)="startEdit(idx, 'expireAmount')">
-                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'expireAmount') {
-                      <div class="cell-edit">
-                        <input type="number" [(ngModel)]="editingValue" class="edit-input" (click)="$event.stopPropagation()">
-                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
-                          <mat-icon class="confirm-icon">check</mat-icon>
-                        </button>
-                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
-                          <mat-icon class="cancel-icon">close</mat-icon>
-                        </button>
-                      </div>
-                    } @else {
-                      <span class="cell-value">
-                        {{ item.expireAmount }} {{ item.expireUnit }}
-                        <mat-icon class="edit-indicator">edit</mat-icon>
-                      </span>
-                    }
-                  </td>
+                      <!-- Expire Amount -->
+                      <td
+                        class="col-expire-in editable-cell"
+                        [class.editing]="
+                          editingCell?.rowIndex === idx && editingCell?.field === 'expireAmount'
+                        "
+                        (click)="startEdit(idx, 'expireAmount')"
+                      >
+                        @if (
+                          editingCell?.rowIndex === idx && editingCell?.field === 'expireAmount'
+                        ) {
+                          <div class="cell-edit">
+                            <input
+                              type="number"
+                              [(ngModel)]="editingValue"
+                              class="edit-input"
+                              (click)="$event.stopPropagation()"
+                            />
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); confirmEdit()"
+                            >
+                              <mat-icon class="confirm-icon">check</mat-icon>
+                            </button>
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); cancelEdit()"
+                            >
+                              <mat-icon class="cancel-icon">close</mat-icon>
+                            </button>
+                          </div>
+                        } @else {
+                          <span class="cell-value">
+                            {{ item.expireAmount }} {{ item.expireUnit }}
+                            <mat-icon class="edit-indicator">edit</mat-icon>
+                          </span>
+                        }
+                      </td>
 
-                  <!-- Expiry Date -->
-                  <td class="col-expiry editable-cell"
-                      [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'expirationDate'"
-                      (click)="startEdit(idx, 'expirationDate')">
-                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'expirationDate') {
-                      <div class="cell-edit">
-                        <input type="date" [(ngModel)]="editingValue" class="edit-input" (click)="$event.stopPropagation()">
-                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
-                          <mat-icon class="confirm-icon">check</mat-icon>
-                        </button>
-                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
-                          <mat-icon class="cancel-icon">close</mat-icon>
-                        </button>
-                      </div>
-                    } @else {
-                      <span class="cell-value">{{ item.expirationDate }}</span>
-                      <mat-icon class="edit-indicator">edit</mat-icon>
-                    }
-                  </td>
+                      <!-- Expiry Date -->
+                      <td
+                        class="col-expiry editable-cell"
+                        [class.editing]="
+                          editingCell?.rowIndex === idx && editingCell?.field === 'expirationDate'
+                        "
+                        (click)="startEdit(idx, 'expirationDate')"
+                      >
+                        @if (
+                          editingCell?.rowIndex === idx && editingCell?.field === 'expirationDate'
+                        ) {
+                          <div class="cell-edit">
+                            <input
+                              type="date"
+                              [(ngModel)]="editingValue"
+                              class="edit-input"
+                              (click)="$event.stopPropagation()"
+                            />
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); confirmEdit()"
+                            >
+                              <mat-icon class="confirm-icon">check</mat-icon>
+                            </button>
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); cancelEdit()"
+                            >
+                              <mat-icon class="cancel-icon">close</mat-icon>
+                            </button>
+                          </div>
+                        } @else {
+                          <span class="cell-value">{{ item.expirationDate }}</span>
+                          <mat-icon class="edit-indicator">edit</mat-icon>
+                        }
+                      </td>
 
-                  <!-- Notes -->
-                  <td class="col-notes editable-cell" [class.editing]="editingCell?.rowIndex === idx && editingCell?.field === 'notes'" (click)="startEdit(idx, 'notes')">
-                    @if (editingCell?.rowIndex === idx && editingCell?.field === 'notes') {
-                      <div class="cell-edit">
-                        <input type="text" [(ngModel)]="editingValue" class="edit-input" (click)="$event.stopPropagation()">
-                        <button mat-icon-button (click)="$event.stopPropagation(); confirmEdit()">
-                          <mat-icon class="confirm-icon">check</mat-icon>
-                        </button>
-                        <button mat-icon-button (click)="$event.stopPropagation(); cancelEdit()">
-                          <mat-icon class="cancel-icon">close</mat-icon>
-                        </button>
-                      </div>
-                    } @else {
-                      <span class="cell-value">
-                        {{ item.notes || '—' }}
-                        <mat-icon class="edit-indicator">edit</mat-icon>
-                      </span>
-                    }
-                  </td>
+                      <!-- Notes -->
+                      <td
+                        class="col-notes editable-cell"
+                        [class.editing]="
+                          editingCell?.rowIndex === idx && editingCell?.field === 'notes'
+                        "
+                        (click)="startEdit(idx, 'notes')"
+                      >
+                        @if (editingCell?.rowIndex === idx && editingCell?.field === 'notes') {
+                          <div class="cell-edit">
+                            <input
+                              type="text"
+                              [(ngModel)]="editingValue"
+                              class="edit-input"
+                              (click)="$event.stopPropagation()"
+                            />
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); confirmEdit()"
+                            >
+                              <mat-icon class="confirm-icon">check</mat-icon>
+                            </button>
+                            <button
+                              mat-icon-button
+                              (click)="$event.stopPropagation(); cancelEdit()"
+                            >
+                              <mat-icon class="cancel-icon">close</mat-icon>
+                            </button>
+                          </div>
+                        } @else {
+                          <span class="cell-value">
+                            {{ item.notes || '—' }}
+                            <mat-icon class="edit-indicator">edit</mat-icon>
+                          </span>
+                        }
+                      </td>
 
-                  <!-- Notifications -->
-                  <td class="col-notify">
-                    <mat-slide-toggle [(ngModel)]="item.notificationEnabled" (click)="$event.stopPropagation()" color="primary"></mat-slide-toggle>
-                  </td>
-                </tr>
-                }
-              </tbody>
-            </table>
+                      <!-- Notifications -->
+                      <td class="col-notify">
+                        <mat-slide-toggle
+                          [(ngModel)]="item.notificationEnabled"
+                          (click)="$event.stopPropagation()"
+                          color="primary"
+                        ></mat-slide-toggle>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
         }
 
         <!-- Bottom navigation (fixed) -->
         @if (reviewMode === 'wizard') {
-        <div class="wizard-nav">
-          <button mat-button (click)="goBack()" [disabled]="isFirstItem">
-            <mat-icon>arrow_back</mat-icon>
-            Back
-          </button>
-          <button mat-button (click)="onSkipToggle()" [class.skipped]="!currentItem.included">
-            <mat-icon>{{ currentItem.included ? 'skip_next' : 'undo' }}</mat-icon>
-            {{ currentItem.included ? 'Skip' : 'Un-skip' }}
-          </button>
-          <span class="spacer"></span>
-          <button mat-raised-button color="primary" (click)="goNext()">
-            {{ isLastItem ? 'Add All (' + includedCount + ')' : 'Next' }}
-            <mat-icon>{{ isLastItem ? 'check' : 'arrow_forward' }}</mat-icon>
-          </button>
-        </div>
+          <div class="wizard-nav">
+            <button mat-button (click)="goBack()" [disabled]="isFirstItem">
+              <mat-icon>arrow_back</mat-icon>
+              Back
+            </button>
+            <button mat-button (click)="onSkipToggle()" [class.skipped]="!currentItem.included">
+              <mat-icon>{{ currentItem.included ? 'skip_next' : 'undo' }}</mat-icon>
+              {{ currentItem.included ? 'Skip' : 'Un-skip' }}
+            </button>
+            <span class="spacer"></span>
+            <button mat-raised-button color="primary" (click)="goNext()">
+              {{ isLastItem ? 'Add All (' + includedCount + ')' : 'Next' }}
+              <mat-icon>{{ isLastItem ? 'check' : 'arrow_forward' }}</mat-icon>
+            </button>
+          </div>
         }
         @if (reviewMode === 'table') {
-        <div class="wizard-nav table-nav">
-          <span class="spacer"></span>
-          <button mat-raised-button color="primary" (click)="addItems()">
-            <mat-icon>check</mat-icon>
-            Add All ({{ includedCount }})
-          </button>
-        </div>
+          <div class="wizard-nav table-nav">
+            <span class="spacer"></span>
+            <button mat-raised-button color="primary" (click)="addItems()">
+              <mat-icon>check</mat-icon>
+              Add All ({{ includedCount }})
+            </button>
+          </div>
         }
       </div>
 
@@ -615,653 +835,703 @@ type Step = 'capture' | 'analyzing' | 'mode-select' | 'item-wizard' | 'adding' |
           View Inventory
         </button>
       </div>
-
     </div>
   `,
-  styles: [`
-    .receipt-scan-container {
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      background: #fafafa;
-    }
-
-    .scan-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      background: white;
-      border-bottom: 1px solid rgba(0,0,0,0.12);
-      position: sticky;
-      top: 0;
-      z-index: 10;
-
-      h1 {
-        margin: 0;
-        font-size: 1.25rem;
-        font-weight: 500;
-        flex: 1;
-      }
-
-      .step-count {
-        font-size: 0.9rem;
-        color: rgba(0,0,0,0.6);
-      }
-    }
-
-    /* Capture step */
-    .step-capture {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem 1.5rem;
-      text-align: center;
-      gap: 1rem;
-
-      .capture-illustration mat-icon {
-        font-size: 96px;
-        width: 96px;
-        height: 96px;
-        color: rgba(0,0,0,0.2);
-      }
-
-      h2 { margin: 0; font-weight: 500; }
-
-      .hint {
-        margin: 0;
-        color: rgba(0,0,0,0.54);
-        font-size: 0.9rem;
-        max-width: 320px;
-      }
-
-      .capture-actions {
+  styles: [
+    `
+      .receipt-scan-container {
+        height: 100%;
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        width: 100%;
-        max-width: 280px;
-        margin-top: 1rem;
-
-        button {
-          min-height: 48px;
-          mat-icon { margin-right: 8px; }
-        }
+        background: #fafafa;
       }
 
-      .receipt-date-field {
-        width: 100%;
-        max-width: 280px;
-        margin-top: 1rem;
-      }
-    }
-
-    /* Analyzing / Adding steps */
-    .step-analyzing,
-    .step-adding {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1.5rem;
-      text-align: center;
-
-      h2 { margin: 0; font-weight: 500; }
-
-      .hint, .progress-text {
-        margin: 0;
-        color: rgba(0,0,0,0.54);
-        font-size: 0.9rem;
-      }
-    }
-
-    /* Item Wizard step */
-    .step-item-wizard {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      background: #f5f5f5;
-    }
-
-    .wizard-progress {
-      position: sticky;
-      top: 0;
-      z-index: 5;
-      width: 100%;
-    }
-
-    .wizard-card {
-      flex: 1;
-      overflow-y: auto;
-      margin: 12px 16px 88px 16px;
-      padding: 20px;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-
-      .wizard-item-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-
-        .item-progress {
-          font-size: 0.95rem;
-          font-weight: 500;
-          color: rgba(0,0,0,0.87);
-        }
-
-        .skip-btn {
-          color: rgba(0,0,0,0.6);
-        }
-      }
-    }
-
-    .wizard-section {
-      margin-bottom: 24px;
-
-      &:last-child {
-        margin-bottom: 0;
-      }
-
-      .wizard-section-title {
+      .scan-header {
         display: flex;
         align-items: center;
         gap: 8px;
-        color: var(--primary-color);
-        font-size: 1rem;
-        font-weight: 500;
-        margin: 0 0 16px 0;
+        padding: 8px 16px;
+        background: white;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+        position: sticky;
+        top: 0;
+        z-index: 10;
 
-        mat-icon {
-          font-size: 20px;
-          width: 20px;
-          height: 20px;
+        h1 {
+          margin: 0;
+          font-size: 1.25rem;
+          font-weight: 500;
+          flex: 1;
+        }
+
+        .step-count {
+          font-size: 0.9rem;
+          color: rgba(0, 0, 0, 0.6);
         }
       }
 
-      .full-width {
-        width: 100%;
-      }
-
-      .form-row {
+      /* Capture step */
+      .step-capture {
+        flex: 1;
         display: flex;
-        gap: 12px;
-
-        .flex-1 { flex: 1; }
-        .flex-2 { flex: 2; }
-      }
-
-      .selector-field {
-        cursor: pointer;
-        display: flex;
-        justify-content: space-between;
+        flex-direction: column;
         align-items: center;
-        padding: 12px 16px;
-        border: 1px solid rgba(0,0,0,0.12);
-        border-radius: 4px;
-        margin-bottom: 12px;
-        transition: background 0.2s ease;
+        justify-content: center;
+        padding: 2rem 1.5rem;
+        text-align: center;
+        gap: 1rem;
 
-        &:hover {
-          background: rgba(0,0,0,0.02);
+        .capture-illustration mat-icon {
+          font-size: 96px;
+          width: 96px;
+          height: 96px;
+          color: rgba(0, 0, 0, 0.2);
         }
 
-        .selector-label {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: rgba(0,0,0,0.87);
+        h2 {
+          margin: 0;
+          font-weight: 500;
+        }
 
-          mat-icon {
-            color: var(--primary-color);
+        .hint {
+          margin: 0;
+          color: rgba(0, 0, 0, 0.54);
+          font-size: 0.9rem;
+          max-width: 320px;
+        }
+
+        .capture-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          width: 100%;
+          max-width: 280px;
+          margin-top: 1rem;
+
+          button {
+            min-height: 48px;
+            mat-icon {
+              margin-right: 8px;
+            }
           }
         }
 
-        .selector-value {
+        .receipt-date-field {
+          width: 100%;
+          max-width: 280px;
+          margin-top: 1rem;
+        }
+      }
+
+      /* Analyzing / Adding steps */
+      .step-analyzing,
+      .step-adding {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.5rem;
+        text-align: center;
+
+        h2 {
+          margin: 0;
+          font-weight: 500;
+        }
+
+        .hint,
+        .progress-text {
+          margin: 0;
+          color: rgba(0, 0, 0, 0.54);
+          font-size: 0.9rem;
+        }
+      }
+
+      /* Item Wizard step */
+      .step-item-wizard {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: #f5f5f5;
+      }
+
+      .wizard-progress {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        width: 100%;
+      }
+
+      .wizard-card {
+        flex: 1;
+        overflow-y: auto;
+        margin: 12px 16px 88px 16px;
+        padding: 20px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+        .wizard-item-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+
+          .item-progress {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: rgba(0, 0, 0, 0.87);
+          }
+
+          .skip-btn {
+            color: rgba(0, 0, 0, 0.6);
+          }
+        }
+      }
+
+      .wizard-section {
+        margin-bottom: 24px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .wizard-section-title {
           display: flex;
           align-items: center;
           gap: 8px;
           color: var(--primary-color);
+          font-size: 1rem;
           font-weight: 500;
+          margin: 0 0 16px 0;
+
+          mat-icon {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+          }
+        }
+
+        .full-width {
+          width: 100%;
+        }
+
+        .form-row {
+          display: flex;
+          gap: 12px;
+
+          .flex-1 {
+            flex: 1;
+          }
+          .flex-2 {
+            flex: 2;
+          }
+        }
+
+        .selector-field {
+          cursor: pointer;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 16px;
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          border-radius: 4px;
+          margin-bottom: 12px;
+          transition: background 0.2s ease;
+
+          &:hover {
+            background: rgba(0, 0, 0, 0.02);
+          }
+
+          .selector-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(0, 0, 0, 0.87);
+
+            mat-icon {
+              color: var(--primary-color);
+            }
+          }
+
+          .selector-value {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary-color);
+            font-weight: 500;
+          }
+        }
+
+        .expiry-controls {
+          display: flex;
+          gap: 12px;
+          align-items: flex-end;
+          margin-bottom: 12px;
+
+          .flex-1 {
+            flex: 1;
+          }
+
+          .ai-btn {
+            margin-bottom: 8px;
+            min-width: 60px;
+
+            mat-icon {
+              font-size: 18px;
+              width: 18px;
+              height: 18px;
+              margin-right: 4px;
+            }
+          }
+        }
+
+        .notification-toggle {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 0;
+          border-top: 1px solid rgba(0, 0, 0, 0.08);
+
+          .toggle-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(0, 0, 0, 0.87);
+
+            mat-icon {
+              color: var(--primary-color);
+            }
+          }
         }
       }
 
-      .expiry-controls {
+      /* Bottom navigation (fixed) */
+      .wizard-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
         display: flex;
         gap: 12px;
-        align-items: flex-end;
-        margin-bottom: 12px;
-
-        .flex-1 { flex: 1; }
-
-        .ai-btn {
-          margin-bottom: 8px;
-          min-width: 60px;
-
-          mat-icon {
-            font-size: 18px;
-            width: 18px;
-            height: 18px;
-            margin-right: 4px;
-          }
-        }
-      }
-
-      .notification-toggle {
-        display: flex;
-        justify-content: space-between;
         align-items: center;
-        padding: 12px 0;
-        border-top: 1px solid rgba(0,0,0,0.08);
-
-        .toggle-info {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: rgba(0,0,0,0.87);
-
-          mat-icon {
-            color: var(--primary-color);
-          }
-        }
-      }
-    }
-
-    /* Bottom navigation (fixed) */
-    .wizard-nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      padding: 12px 16px;
-      background: white;
-      border-top: 1px solid rgba(0,0,0,0.08);
-      box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
-      z-index: 10;
-
-      button {
-        flex: 1;
-        min-height: 48px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-      }
-
-      .spacer {
-        flex: 1;
-      }
-    }
-
-    /* Done step */
-    .step-done {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1rem;
-      text-align: center;
-      padding: 2rem;
-
-      .done-icon {
-        font-size: 80px;
-        width: 80px;
-        height: 80px;
-        color: #4caf50;
-      }
-
-      h2 { margin: 0; font-weight: 500; }
-      p { margin: 0; color: rgba(0,0,0,0.6); }
-
-      button {
-        margin-top: 1rem;
-        min-height: 48px;
-        mat-icon { margin-right: 8px; }
-      }
-    }
-
-    /* Mode selection screen */
-    .step-mode-select {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 2rem;
-      padding: 2rem;
-      min-height: 100%;
-
-      h2 {
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 500;
-        text-align: center;
-      }
-
-      .mode-hint {
-        margin: 0;
-        color: rgba(0, 0, 0, 0.6);
-        text-align: center;
-        strong { color: var(--primary-color, #4caf50); }
-      }
-
-      .mode-options {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1.5rem;
-        width: 100%;
-        max-width: 600px;
-      }
-    }
-
-    .mode-card {
-      border: 2px solid #e0e0e0;
-      border-radius: 12px;
-      padding: 2rem 1.5rem;
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.3s ease;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.75rem;
-
-      &:hover {
-        border-color: var(--primary-color, #4caf50);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-      }
-
-      mat-icon {
-        font-size: 48px;
-        width: 48px;
-        height: 48px;
-        color: var(--primary-color, #4caf50);
-      }
-
-      h3 {
-        margin: 0;
-        font-size: 1.1rem;
-        font-weight: 500;
-      }
-
-      p {
-        margin: 0;
-        font-size: 0.9rem;
-        color: rgba(0, 0, 0, 0.6);
-      }
-    }
-
-    /* Datatable view styles */
-    .table-view-container {
-      display: flex;
-      flex-direction: column;
-      height: calc(100vh - 240px);
-      overflow: hidden;
-    }
-
-    .table-wrapper {
-      flex: 1;
-      overflow-x: auto;
-      overflow-y: auto;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      background: white;
-    }
-
-    .items-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-
-      thead {
-        position: sticky;
-        top: 0;
-        background: #f5f5f5;
-        border-bottom: 2px solid #e0e0e0;
+        padding: 12px 16px;
+        background: white;
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
         z-index: 10;
 
-        th {
-          padding: 12px 8px;
-          text-align: left;
-          font-weight: 600;
-          color: rgba(0, 0, 0, 0.87);
-          white-space: nowrap;
+        button {
+          flex: 1;
+          min-height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .spacer {
+          flex: 1;
+        }
+      }
+
+      /* Done step */
+      .step-done {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        text-align: center;
+        padding: 2rem;
+
+        .done-icon {
+          font-size: 80px;
+          width: 80px;
+          height: 80px;
+          color: #4caf50;
+        }
+
+        h2 {
+          margin: 0;
+          font-weight: 500;
+        }
+        p {
+          margin: 0;
+          color: rgba(0, 0, 0, 0.6);
+        }
+
+        button {
+          margin-top: 1rem;
+          min-height: 48px;
+          mat-icon {
+            margin-right: 8px;
+          }
+        }
+      }
+
+      /* Mode selection screen */
+      .step-mode-select {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2rem;
+        padding: 2rem;
+        min-height: 100%;
+
+        h2 {
+          margin: 0;
+          font-size: 1.5rem;
+          font-weight: 500;
+          text-align: center;
+        }
+
+        .mode-hint {
+          margin: 0;
+          color: rgba(0, 0, 0, 0.6);
+          text-align: center;
+          strong {
+            color: var(--primary-color, #4caf50);
+          }
+        }
+
+        .mode-options {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 1.5rem;
+          width: 100%;
+          max-width: 600px;
+        }
+      }
+
+      .mode-card {
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 2rem 1.5rem;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+
+        &:hover {
+          border-color: var(--primary-color, #4caf50);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+
+        mat-icon {
+          font-size: 48px;
+          width: 48px;
+          height: 48px;
+          color: var(--primary-color, #4caf50);
+        }
+
+        h3 {
+          margin: 0;
+          font-size: 1.1rem;
+          font-weight: 500;
+        }
+
+        p {
+          margin: 0;
+          font-size: 0.9rem;
+          color: rgba(0, 0, 0, 0.6);
+        }
+      }
+
+      /* Datatable view styles */
+      .table-view-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 240px);
+        overflow: hidden;
+      }
+
+      .table-wrapper {
+        flex: 1;
+        overflow-x: auto;
+        overflow-y: auto;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        background: white;
+      }
+
+      .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+
+        thead {
+          position: sticky;
+          top: 0;
+          background: #f5f5f5;
+          border-bottom: 2px solid #e0e0e0;
+          z-index: 10;
+
+          th {
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: 600;
+            color: rgba(0, 0, 0, 0.87);
+            white-space: nowrap;
+            border-right: 1px solid #e0e0e0;
+
+            &:last-child {
+              border-right: none;
+            }
+          }
+        }
+
+        tbody tr {
+          border-bottom: 1px solid #e0e0e0;
+          transition: background-color 0.2s;
+
+          &:hover {
+            background: #fafafa;
+          }
+
+          &.row-skipped {
+            opacity: 0.65;
+            background: #f5f5f5;
+
+            .cell-value {
+              text-decoration: line-through;
+              color: rgba(0, 0, 0, 0.4);
+            }
+          }
+        }
+
+        td {
+          padding: 10px 8px;
           border-right: 1px solid #e0e0e0;
+          vertical-align: middle;
 
           &:last-child {
             border-right: none;
           }
-        }
-      }
 
-      tbody tr {
-        border-bottom: 1px solid #e0e0e0;
-        transition: background-color 0.2s;
-
-        &:hover {
-          background: #fafafa;
-        }
-
-        &.row-skipped {
-          opacity: 0.65;
-          background: #f5f5f5;
+          &.editing {
+            background: #fffbea;
+            padding: 4px;
+          }
 
           .cell-value {
-            text-decoration: line-through;
-            color: rgba(0, 0, 0, 0.4);
+            display: block;
+            padding: 6px 4px;
+            cursor: pointer;
+            user-select: none;
+            color: rgba(0, 0, 0, 0.87);
+
+            &.cell-selector {
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              color: var(--primary-color, #4caf50);
+
+              mat-icon {
+                font-size: 16px;
+                width: 16px;
+                height: 16px;
+                opacity: 0.6;
+              }
+
+              &:hover {
+                text-decoration: underline;
+              }
+            }
           }
-        }
-      }
 
-      td {
-        padding: 10px 8px;
-        border-right: 1px solid #e0e0e0;
-        vertical-align: middle;
-
-        &:last-child {
-          border-right: none;
-        }
-
-        &.editing {
-          background: #fffbea;
-          padding: 4px;
-        }
-
-        .cell-value {
-          display: block;
-          padding: 6px 4px;
-          cursor: pointer;
-          user-select: none;
-          color: rgba(0, 0, 0, 0.87);
-
-          &.cell-selector {
+          .cell-edit {
             display: flex;
             align-items: center;
             gap: 4px;
-            color: var(--primary-color, #4caf50);
 
-            mat-icon {
-              font-size: 16px;
-              width: 16px;
-              height: 16px;
-              opacity: 0.6;
+            .edit-input {
+              flex: 1;
+              padding: 4px 6px;
+              border: 1px solid var(--primary-color, #4caf50);
+              border-radius: 4px;
+              font-size: 0.9rem;
+              min-width: 60px;
             }
 
-            &:hover {
-              text-decoration: underline;
+            .edit-select {
+              flex: 1;
+              padding: 4px 6px;
+              border: 1px solid var(--primary-color, #4caf50);
+              border-radius: 4px;
+              font-size: 0.9rem;
+              min-width: 60px;
             }
-          }
-        }
 
-        .cell-edit {
-          display: flex;
-          align-items: center;
-          gap: 4px;
+            .edit-buttons {
+              display: flex;
+              gap: 2px;
 
-          .edit-input {
-            flex: 1;
-            padding: 4px 6px;
-            border: 1px solid var(--primary-color, #4caf50);
-            border-radius: 4px;
-            font-size: 0.9rem;
-            min-width: 60px;
-          }
+              button {
+                padding: 0;
+                min-width: 32px;
+                height: 32px;
 
-          .edit-select {
-            flex: 1;
-            padding: 4px 6px;
-            border: 1px solid var(--primary-color, #4caf50);
-            border-radius: 4px;
-            font-size: 0.9rem;
-            min-width: 60px;
-          }
+                mat-icon {
+                  font-size: 18px;
+                  width: 18px;
+                  height: 18px;
 
-          .edit-buttons {
-            display: flex;
-            gap: 2px;
+                  &.confirm-icon {
+                    color: #4caf50;
+                  }
 
-            button {
-              padding: 0;
-              min-width: 32px;
-              height: 32px;
-
-              mat-icon {
-                font-size: 18px;
-                width: 18px;
-                height: 18px;
-
-                &.confirm-icon {
-                  color: #4caf50;
-                }
-
-                &.cancel-icon {
-                  color: #f44336;
+                  &.cancel-icon {
+                    color: #f44336;
+                  }
                 }
               }
             }
           }
         }
-      }
 
-      /* Editable cell styling */
-      td.editable-cell {
-        position: relative;
-        background: linear-gradient(135deg, rgba(76, 175, 80, 0.03) 0%, transparent 100%);
+        /* Editable cell styling */
+        td.editable-cell {
+          position: relative;
+          background: linear-gradient(135deg, rgba(76, 175, 80, 0.03) 0%, transparent 100%);
 
-        &:hover {
-          background: rgba(76, 175, 80, 0.08);
-        }
+          &:hover {
+            background: rgba(76, 175, 80, 0.08);
+          }
 
-        .cell-value {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 6px;
+          .cell-value {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
 
-          .edit-indicator {
-            font-size: 14px;
-            width: 14px;
-            height: 14px;
-            color: var(--primary-color, #4caf50);
-            opacity: 0;
-            transition: opacity 0.2s;
+            .edit-indicator {
+              font-size: 14px;
+              width: 14px;
+              height: 14px;
+              color: var(--primary-color, #4caf50);
+              opacity: 0;
+              transition: opacity 0.2s;
+            }
+          }
+
+          &:hover .edit-indicator {
+            opacity: 0.7;
+          }
+
+          &.editing {
+            background: #fffbea !important;
           }
         }
 
-        &:hover .edit-indicator {
-          opacity: 0.7;
+        /* Column widths */
+        .col-include {
+          width: 80px;
+        }
+        .col-name {
+          width: 120px;
+        }
+        .col-qty {
+          width: 60px;
+        }
+        .col-unit {
+          width: 70px;
+        }
+        .col-price {
+          width: 80px;
+        }
+        .col-category {
+          width: 100px;
+        }
+        .col-location {
+          width: 100px;
+        }
+        .col-purchase {
+          width: 100px;
+        }
+        .col-expire-in {
+          width: 90px;
+        }
+        .col-expiry {
+          width: 90px;
+        }
+        .col-notes {
+          width: 120px;
+        }
+        .col-notify {
+          width: 60px;
+        }
+      }
+
+      .skip-chip {
+        cursor: pointer;
+        min-width: 50px;
+        font-size: 0.75rem;
+        padding: 2px 8px !important;
+
+        &.included {
+          background: #e8f5e9 !important;
+          color: #2e7d32 !important;
         }
 
-        &.editing {
-          background: #fffbea !important;
+        &.skipped {
+          background: #eeeeee !important;
+          color: rgba(0, 0, 0, 0.5) !important;
         }
       }
 
-      /* Column widths */
-      .col-include { width: 80px; }
-      .col-name { width: 120px; }
-      .col-qty { width: 60px; }
-      .col-unit { width: 70px; }
-      .col-price { width: 80px; }
-      .col-category { width: 100px; }
-      .col-location { width: 100px; }
-      .col-purchase { width: 100px; }
-      .col-expire-in { width: 90px; }
-      .col-expiry { width: 90px; }
-      .col-notes { width: 120px; }
-      .col-notify { width: 60px; }
-    }
-
-    .skip-chip {
-      cursor: pointer;
-      min-width: 50px;
-      font-size: 0.75rem;
-      padding: 2px 8px !important;
-
-      &.included {
-        background: #e8f5e9 !important;
-        color: #2e7d32 !important;
+      .table-nav {
+        justify-content: flex-end;
       }
 
-      &.skipped {
-        background: #eeeeee !important;
-        color: rgba(0, 0, 0, 0.5) !important;
-      }
-    }
-
-    .table-nav {
-      justify-content: flex-end;
-    }
-
-    /* Skip banner */
-    .skipped-banner {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: #fff3e0;
-      border: 1px solid #ffb74d;
-      border-radius: 8px;
-      padding: 10px 14px;
-      margin-bottom: 16px;
-      font-size: 0.9rem;
-      color: #e65100;
-
-      mat-icon {
+      /* Skip banner */
+      .skipped-banner {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #fff3e0;
+        border: 1px solid #ffb74d;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 16px;
+        font-size: 0.9rem;
         color: #e65100;
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-        flex-shrink: 0;
+
+        mat-icon {
+          color: #e65100;
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+          flex-shrink: 0;
+        }
+
+        span {
+          flex: 1;
+        }
+
+        button {
+          margin-left: auto;
+          flex-shrink: 0;
+        }
       }
 
-      span {
-        flex: 1;
-      }
-
-      button {
+      /* Mode toggle in header */
+      .mode-toggle {
         margin-left: auto;
-        flex-shrink: 0;
       }
-    }
 
-    /* Mode toggle in header */
-    .mode-toggle {
-      margin-left: auto;
-    }
-
-    .skipped-label {
-      color: rgba(0, 0, 0, 0.5);
-      font-weight: 400;
-    }
-  `]
+      .skipped-label {
+        color: rgba(0, 0, 0, 0.5);
+        font-weight: 400;
+      }
+    `,
+  ],
 })
 export class ReceiptScanComponent implements OnInit {
   step: Step = 'capture';
@@ -1282,8 +1552,8 @@ export class ReceiptScanComponent implements OnInit {
 
   // Receipt date selection — use Date objects so matDatepicker gets a stable reference
   receiptDate: Date = new Date();
-  today: string = toLocalDateString(new Date());   // YYYY-MM-DD string for native <input type="date"> [max]
-  todayDate: Date = new Date();                    // Date object for matDatepicker [max]
+  today: string = toLocalDateString(new Date()); // YYYY-MM-DD string for native <input type="date"> [max]
+  todayDate: Date = new Date(); // Date object for matDatepicker [max]
 
   // Table editing state
   editingCell: { rowIndex: number; field: keyof ReviewItem } | null = null;
@@ -1303,7 +1573,7 @@ export class ReceiptScanComponent implements OnInit {
     return this.currentItemIndex === this.reviewItems.length - 1;
   }
   get includedCount(): number {
-    return this.reviewItems.filter(i => i.included).length;
+    return this.reviewItems.filter((i) => i.included).length;
   }
 
   constructor(
@@ -1315,7 +1585,7 @@ export class ReceiptScanComponent implements OnInit {
     private bottomSheet: MatBottomSheet,
     private matDialog: MatDialog,
     private expirationAIService: ExpirationAIService,
-    private imageService: ImageService
+    private imageService: ImageService,
   ) {}
 
   async ngOnInit() {
@@ -1326,7 +1596,6 @@ export class ReceiptScanComponent implements OnInit {
       this.defaultLocationId = this.locations.length > 0 ? (this.locations[0].id ?? null) : null;
     }
   }
-
 
   async capturePhoto(source: 'camera' | 'gallery') {
     try {
@@ -1368,17 +1637,44 @@ export class ReceiptScanComponent implements OnInit {
       if (source === 'camera') {
         input.setAttribute('capture', 'environment');
       }
-      input.onchange = () => {
-        const file = input.files && input.files[0] ? input.files[0] : null;
+      input.style.display = 'none';
+
+      let settled = false;
+      const settle = (file: File | null) => {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener('focus', onWindowFocus);
+        input.remove();
         resolve(file);
       };
-      input.oncancel = () => resolve(null);
+
+      input.onchange = () => {
+        settle(input.files && input.files[0] ? input.files[0] : null);
+      };
+      input.oncancel = () => settle(null);
+
+      // Fallback for browsers where neither 'change' nor 'cancel' fires when
+      // the user backs out of the native camera/file picker (inconsistent
+      // across iOS Safari and Android WebViews) - without this the promise
+      // never resolves and a retry looks like the first tap did nothing.
+      // The window regains focus as soon as the native picker UI closes, so
+      // give 'change' a beat to fire first, then resolve with whatever (if
+      // anything) ended up selected.
+      const onWindowFocus = () => {
+        setTimeout(() => settle(input.files && input.files[0] ? input.files[0] : null), 300);
+      };
+      window.addEventListener('focus', onWindowFocus, { once: true });
+
+      // Must be attached to the document for .click() to reliably open the
+      // native picker on some mobile browsers - a detached input silently
+      // no-ops the click on those devices, hanging this promise forever.
+      document.body.appendChild(input);
       input.click();
     });
   }
 
   getLocationName(locationId: number): string | undefined {
-    return this.locations.find(l => l.id === locationId)?.name;
+    return this.locations.find((l) => l.id === locationId)?.name;
   }
 
   // Convert a YYYY-MM-DD string to a local-midnight Date for matDatepicker display.
@@ -1424,12 +1720,12 @@ export class ReceiptScanComponent implements OnInit {
           locationId: this.defaultLocationId ?? 1,
           purchaseDate: purchaseDateStr,
           expirationDate: toLocalDateString(expiryDate),
-          purchaseDateLocal: purchaseDateLocal,   // stable Date ref for datepicker
-          expirationDateLocal: expiryDate,        // stable Date ref for datepicker
+          purchaseDateLocal: purchaseDateLocal, // stable Date ref for datepicker
+          expirationDateLocal: expiryDate, // stable Date ref for datepicker
           expireAmount: expiryDays,
           expireUnit: 'days' as const,
           notes: '',
-          notificationEnabled: true
+          notificationEnabled: true,
         };
       });
 
@@ -1438,7 +1734,10 @@ export class ReceiptScanComponent implements OnInit {
       this.expandedItemIndex = null;
       this.step = 'mode-select';
     } catch (err: unknown) {
-      console.error('[ReceiptScan] analyzeReceipt error:', err instanceof Error ? err.message : String(err));
+      console.error(
+        '[ReceiptScan] analyzeReceipt error:',
+        err instanceof Error ? err.message : String(err),
+      );
       const msg = err instanceof Error ? err.message : '';
       this.showMessage(msg || 'Failed to parse receipt. Please try again.');
       this.step = 'capture';
@@ -1446,10 +1745,10 @@ export class ReceiptScanComponent implements OnInit {
   }
 
   private resolveCategoryId(hint: string): number {
-    const match = this.categories.find(c => c.name.toLowerCase() === hint.toLowerCase());
+    const match = this.categories.find((c) => c.name.toLowerCase() === hint.toLowerCase());
     if (match?.id) return match.id;
-    const other = this.categories.find(c => c.name.toLowerCase() === 'other');
-    return other?.id ?? (this.categories[0]?.id ?? 1);
+    const other = this.categories.find((c) => c.name.toLowerCase() === 'other');
+    return other?.id ?? this.categories[0]?.id ?? 1;
   }
 
   // Wizard navigation methods
@@ -1470,10 +1769,10 @@ export class ReceiptScanComponent implements OnInit {
   skipItem() {
     const dialogRef = this.matDialog.open(SkipItemConfirmationDialog, {
       width: '400px',
-      data: { itemName: this.currentItem.name }
+      data: { itemName: this.currentItem.name },
     });
 
-    dialogRef.afterClosed().subscribe(result => {
+    dialogRef.afterClosed().subscribe((result) => {
       if (result === true) {
         this.currentItem.included = false;
         this.goNext();
@@ -1551,7 +1850,9 @@ export class ReceiptScanComponent implements OnInit {
         item.expirationDateLocal = parseLocalDate(item.expirationDate);
         const purchase = item.purchaseDateLocal || parseLocalDate(item.purchaseDate);
         const expiry = item.expirationDateLocal;
-        const diffDays = Math.round((expiry.getTime() - purchase.getTime()) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.round(
+          (expiry.getTime() - purchase.getTime()) / (1000 * 60 * 60 * 24),
+        );
         item.expireAmount = diffDays > 0 ? diffDays : 0;
         item.expireUnit = 'days';
       }
@@ -1562,7 +1863,7 @@ export class ReceiptScanComponent implements OnInit {
   // Handler for wizard purchase date datepicker — converts Date → string (no UTC offset)
   onPurchaseDateChange(event: MatDatepickerInputEvent<Date>, item: ReviewItem) {
     if (event.value) {
-      item.purchaseDateLocal = event.value;          // keep stable Date ref
+      item.purchaseDateLocal = event.value; // keep stable Date ref
       item.purchaseDate = toLocalDateString(event.value);
       this.updateExpirationDate(item);
     }
@@ -1571,7 +1872,7 @@ export class ReceiptScanComponent implements OnInit {
   // Handler for wizard expiry date datepicker — converts Date → string and back-calculates expireAmount
   onExpiryDateChange(event: MatDatepickerInputEvent<Date>, item: ReviewItem) {
     if (event.value) {
-      item.expirationDateLocal = event.value;        // keep stable Date ref
+      item.expirationDateLocal = event.value; // keep stable Date ref
       item.expirationDate = toLocalDateString(event.value);
       if (item.purchaseDate) {
         const purchase = item.purchaseDateLocal || parseLocalDate(item.purchaseDate);
@@ -1588,9 +1889,10 @@ export class ReceiptScanComponent implements OnInit {
     if (!item.purchaseDate || !item.expireAmount) return;
 
     // Use parseLocalDate for strings to avoid UTC -1 day in negative-offset timezones
-    const purchaseDate = typeof item.purchaseDate === 'string'
-      ? parseLocalDate(item.purchaseDate)
-      : item.purchaseDate as Date;
+    const purchaseDate =
+      typeof item.purchaseDate === 'string'
+        ? parseLocalDate(item.purchaseDate)
+        : (item.purchaseDate as Date);
     let daysToAdd = item.expireAmount;
 
     // Convert to days based on unit
@@ -1612,14 +1914,14 @@ export class ReceiptScanComponent implements OnInit {
     const expiryDate = new Date(purchaseDate);
     expiryDate.setDate(expiryDate.getDate() + daysToAdd);
 
-    item.expirationDateLocal = expiryDate;           // update stable Date ref for datepicker
+    item.expirationDateLocal = expiryDate; // update stable Date ref for datepicker
     item.expirationDate = toLocalDateString(expiryDate);
   }
 
   // Open category selector bottom sheet
   openCategorySelector(item: ReviewItem) {
     const ref = this.bottomSheet.open(CategorySelectorComponent, {
-      panelClass: 'centered-bottom-sheet'
+      panelClass: 'centered-bottom-sheet',
     });
     ref.afterDismissed().subscribe((category: Category) => {
       if (category) {
@@ -1633,7 +1935,7 @@ export class ReceiptScanComponent implements OnInit {
   openLocationSelector(item: ReviewItem) {
     const ref = this.bottomSheet.open(LocationSelectorComponent, {
       data: { userId: this.userId },
-      panelClass: 'centered-bottom-sheet'
+      panelClass: 'centered-bottom-sheet',
     });
     ref.afterDismissed().subscribe((location: Location) => {
       if (location) {
@@ -1655,7 +1957,7 @@ export class ReceiptScanComponent implements OnInit {
     }
     this.isLoadingAI = true;
     try {
-      const location = this.locations.find(l => l.id === item.locationId);
+      const location = this.locations.find((l) => l.id === item.locationId);
       const purchaseDate = new Date(item.purchaseDate);
 
       const result = await this.expirationAIService.suggestExpiration({
@@ -1681,8 +1983,8 @@ export class ReceiptScanComponent implements OnInit {
           purchaseDate: purchaseDate,
           suggestedDays: result.days,
           suggestedExpirationDate: expiryDate,
-          note: result.note || ''
-        } as AISuggestionDialogData
+          note: result.note || '',
+        } as AISuggestionDialogData,
       });
 
       dialogRef.afterClosed().subscribe((dialogResult: { accepted?: boolean } | undefined) => {
@@ -1702,7 +2004,7 @@ export class ReceiptScanComponent implements OnInit {
   }
 
   async addItems() {
-    const included = this.reviewItems.filter(i => i.included);
+    const included = this.reviewItems.filter((i) => i.included);
     if (included.length === 0) return;
 
     this.addTotal = included.length;
@@ -1714,9 +2016,8 @@ export class ReceiptScanComponent implements OnInit {
     for (const item of included) {
       // Calculate unit price from total price and quantity
       // If user entered "2 bottles for $10", unit price is $5
-      const unitPrice = (item.totalPrice && item.quantity > 0)
-        ? item.totalPrice / item.quantity
-        : undefined;
+      const unitPrice =
+        item.totalPrice && item.quantity > 0 ? item.totalPrice / item.quantity : undefined;
 
       const inventoryItem: InventoryItem = {
         userId: this.userId!,
@@ -1732,7 +2033,7 @@ export class ReceiptScanComponent implements OnInit {
         notificationEnabled: item.notificationEnabled,
         notificationDaysBefore: 3,
         initialQuantity: item.quantity,
-        currentQuantity: item.quantity
+        currentQuantity: item.quantity,
       };
 
       const result = await this.inventoryService.addItem(inventoryItem);
@@ -1744,7 +2045,7 @@ export class ReceiptScanComponent implements OnInit {
           expirationDate: item.expirationDate || null,
           purchaseDate: item.purchaseDate || null,
           price: unitPrice || null,
-          notes: item.notes || null
+          notes: item.notes || null,
         });
         addedCount++;
       }
@@ -1797,69 +2098,71 @@ export class ReceiptScanComponent implements OnInit {
       </mat-dialog-actions>
     </div>
   `,
-  styles: [`
-    .skip-dialog {
-      min-width: 300px;
+  styles: [
+    `
+      .skip-dialog {
+        min-width: 300px;
 
-      .dialog-header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 0;
-        padding: 20px 24px 0;
+        .dialog-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 0;
+          padding: 20px 24px 0;
 
-        .warning-icon {
-          font-size: 28px;
-          width: 28px;
-          height: 28px;
-          color: #ff9800;
-          flex-shrink: 0;
-        }
+          .warning-icon {
+            font-size: 28px;
+            width: 28px;
+            height: 28px;
+            color: #ff9800;
+            flex-shrink: 0;
+          }
 
-        h2 {
-          margin: 0;
-          font-size: 1.3rem;
-        }
-      }
-
-      mat-dialog-content {
-        padding: 8px 24px 16px !important;
-
-        .dialog-message {
-          margin: 0 0 0.75rem 0;
-          font-size: 1rem;
-          color: rgba(0, 0, 0, 0.87);
-
-          strong {
-            color: var(--primary-color, #4caf50);
+          h2 {
+            margin: 0;
+            font-size: 1.3rem;
           }
         }
 
-        .dialog-hint {
-          margin: 0;
-          font-size: 0.9rem;
-          color: rgba(0, 0, 0, 0.6);
+        mat-dialog-content {
+          padding: 8px 24px 16px !important;
+
+          .dialog-message {
+            margin: 0 0 0.75rem 0;
+            font-size: 1rem;
+            color: rgba(0, 0, 0, 0.87);
+
+            strong {
+              color: var(--primary-color, #4caf50);
+            }
+          }
+
+          .dialog-hint {
+            margin: 0;
+            font-size: 0.9rem;
+            color: rgba(0, 0, 0, 0.6);
+          }
         }
-      }
 
-      mat-dialog-actions {
-        padding: 12px 24px 16px !important;
+        mat-dialog-actions {
+          padding: 12px 24px 16px !important;
 
-        button {
-          min-width: 80px;
+          button {
+            min-width: 80px;
 
-          mat-icon {
-            margin-right: 6px;
+            mat-icon {
+              margin-right: 6px;
+            }
           }
         }
       }
-    }
-  `]
+    `,
+  ],
 })
 export class SkipItemConfirmationDialog {
   constructor(
     public dialogRef: MatDialogRef<SkipItemConfirmationDialog>,
-    @Inject(MAT_DIALOG_DATA) public data: { itemName: string }
+    @Inject(MAT_DIALOG_DATA) public data: { itemName: string },
   ) {}
 
   onCancel() {

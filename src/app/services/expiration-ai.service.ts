@@ -23,9 +23,14 @@ export class ExpirationAIService {
     try {
       return await this.api.post<ExpirationSuggestion>('/api/ai/expiration-suggest', req);
     } catch (err) {
-      if (err instanceof ApiClientError && err.status === 429) {
+      if (err instanceof ApiClientError && err.body.code === 'QUOTA_EXCEEDED') {
         throw new Error(
-          'You have reached this month\'s AI suggestion limit. Please try again next month.',
+          "You have reached this month's AI suggestion limit. Please try again next month.",
+        );
+      }
+      if (err instanceof ApiClientError && err.body.code === 'RATE_LIMITED') {
+        throw new Error(
+          'The AI suggestion service is busy right now. Please wait a few seconds and try again.',
         );
       }
       throw new Error('The AI suggestion service is unavailable right now.');

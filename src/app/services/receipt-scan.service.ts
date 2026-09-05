@@ -60,9 +60,19 @@ export class ReceiptScanService {
       hybrid.items = items;
       return hybrid as ReceiptParseResult & ReceiptItem[];
     } catch (err) {
-      if (err instanceof ApiClientError && err.status === 429) {
+      if (err instanceof ApiClientError && err.body.code === 'QUOTA_EXCEEDED') {
         throw new Error(
-          'You have reached this month\'s receipt-scan limit. Please try again next month.',
+          "You have reached this month's receipt-scan limit. Please try again next month.",
+        );
+      }
+      if (err instanceof ApiClientError && err.body.code === 'RATE_LIMITED') {
+        throw new Error(
+          'The receipt scanner is busy right now. Please wait a few seconds and try again.',
+        );
+      }
+      if (err instanceof ApiClientError && err.body.code === 'UNSUPPORTED_MEDIA_TYPE') {
+        throw new Error(
+          "That photo couldn't be read as a JPEG, PNG or WebP image. Please retake it and try again.",
         );
       }
       throw new Error('The receipt scanner is unavailable right now.');

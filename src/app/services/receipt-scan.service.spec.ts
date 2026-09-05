@@ -92,6 +92,43 @@ describe('ReceiptScanService', () => {
     expect(caught!.message.toLowerCase()).toContain('limit');
   });
 
+  it('returns a distinct retry-soon message when the AI provider rate-limits us', async () => {
+    const pending = service.parseReceipt('user-123/receipts/a.jpg');
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/ai/receipt-scan'));
+    req.flush(
+      { error: { code: 'RATE_LIMITED', message: 'upstream rate limit' } },
+      { status: 429, statusText: 'Too Many Requests' },
+    );
+    let caught: Error | null = null;
+    try {
+      await pending;
+    } catch (e) {
+      caught = e as Error;
+    }
+    expect(caught).toBeTruthy();
+    expect(caught!.message.toLowerCase()).not.toContain('limit');
+    expect(caught!.message.toLowerCase()).toContain('busy');
+  });
+
+  it('returns a retake-friendly message when the image fails MIME validation', async () => {
+    const pending = service.parseReceipt('user-123/receipts/a.jpg');
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/ai/receipt-scan'));
+    req.flush(
+      { error: { code: 'UNSUPPORTED_MEDIA_TYPE', message: 'mime mismatch' } },
+      { status: 415, statusText: 'Unsupported Media Type' },
+    );
+    let caught: Error | null = null;
+    try {
+      await pending;
+    } catch (e) {
+      caught = e as Error;
+    }
+    expect(caught).toBeTruthy();
+    expect(caught!.message.toLowerCase()).toContain('retake');
+  });
+
   describe('getDefaultExpiryDays', () => {
     it('returns conservative defaults per category', () => {
       expect(service.getDefaultExpiryDays('dairy')).toBe(14);
