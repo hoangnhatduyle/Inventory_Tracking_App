@@ -3,6 +3,7 @@ import { Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LocalDatePipe } from '../../pipes/local-date.pipe';
 import { parseLocalDate } from '../../utils/date.utils';
+import { getRemainingQuantity } from '../../utils/quantity.utils';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -321,7 +322,7 @@ export class InventoryList implements OnInit, OnDestroy {
         case 'name':
           return a.name.localeCompare(b.name);
         case 'quantity':
-          return a.quantity - b.quantity;
+          return getRemainingQuantity(a) - getRemainingQuantity(b);
         case 'recent':
           return (b.id || 0) - (a.id || 0);
         default:
@@ -366,6 +367,8 @@ export class InventoryList implements OnInit, OnDestroy {
         return 'primary';
     }
   }
+
+  readonly remaining = getRemainingQuantity;
 
   hasUsageTracking(item: InventoryItem): boolean {
     return (
@@ -627,7 +630,7 @@ export class InventoryList implements OnInit, OnDestroy {
 
   async onMarkAsWasted(item: InventoryItem) {
     try {
-      const remainingQty = item.currentQuantity != null ? item.currentQuantity : item.quantity;
+      const remainingQty = getRemainingQuantity(item);
       if (!remainingQty || remainingQty <= 0) {
         this.errorHandler.showWarning('Nothing left to mark as wasted');
         return;

@@ -267,7 +267,7 @@
             <div class="item-info">
               <div class="info-row">
                 <mat-icon>scale</mat-icon>
-                <span>{{item.currentQuantity}}/{{ item.quantity }} {{ item.unit }}</span>
+                <span>{{ remaining(item) | number:'1.0-2' }}@if (hasUsageTracking(item)) {/{{ item.initialQuantity | number:'1.0-2' }}} {{ item.unit }}</span>
               </div>
               <div class="info-row">
                 <mat-icon>location_on</mat-icon>
@@ -386,7 +386,7 @@
       <!-- Quantity Column -->
       <ng-container matColumnDef="quantity">
         <th mat-header-cell *matHeaderCellDef>Quantity</th>
-        <td mat-cell *matCellDef="let item">{{ item.quantity }} {{ item.unit }}</td>
+        <td mat-cell *matCellDef="let item">{{ remaining(item) | number:'1.0-2' }} {{ item.unit }}</td>
       </ng-container>
 
       <!-- Location Column -->

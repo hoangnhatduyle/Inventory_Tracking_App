@@ -104,10 +104,10 @@
                   </span>
                   }
                 </div>
-                @if (item.quantity !== undefined && item.quantity !== null) {
+                @if (remaining(item) !== undefined && remaining(item) !== null) {
                 <button type="button" class="item-quantity"
                   (click)="$event.stopPropagation(); onTrackUsage(item)"
-                  [attr.aria-label]="'Track usage for ' + item.name">{{ item.quantity }}</button>
+                  [attr.aria-label]="'Track usage for ' + item.name">{{ remaining(item) | number:'1.0-2' }}</button>
                 }
               </div>
               @if (item.expirationDate) {
@@ -373,7 +373,7 @@
             <mat-icon matListItemIcon>inventory_2</mat-icon>
             <div matListItemTitle>{{ item.name }}</div>
             <div matListItemLine>
-              {{ getCategoryName(item.categoryId) }} • {{ item.quantity }} {{ item.unit }}
+              {{ getCategoryName(item.categoryId) }} • {{ remaining(item) | number:'1.0-2' }} {{ item.unit }}
               @if (item.expirationDate) {
               <span class="expiration-info">
                 • Expires {{ item.expirationDate | localDate:'shortDate' }}

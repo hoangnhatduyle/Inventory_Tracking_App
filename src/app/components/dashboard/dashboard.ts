@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LocalDatePipe } from '../../pipes/local-date.pipe';
 import { parseLocalDate } from '../../utils/date.utils';
+import { getRemainingQuantity } from '../../utils/quantity.utils';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -50,6 +51,8 @@ import { UsageConfirmDialogComponent } from '../../shared/usage-confirm-dialog/u
   styleUrl: './dashboard.scss',
 })
 export class Dashboard implements OnInit {
+  readonly remaining = getRemainingQuantity;
+
   userId: string | null = null;
   username = '';
   statistics: DashboardStatistics | null = null;
