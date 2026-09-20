@@ -878,6 +878,11 @@
             padding-left: 1.25rem;
         }
 
+        &:focus-visible {
+            outline: 2px solid var(--primary-color);
+            outline-offset: -2px;
+        }
+
         .item-content {
             display: flex;
             align-items: center;
@@ -997,10 +1002,19 @@
                 background: rgba(76, 175, 80, 0.1);
                 color: var(--primary-color);
                 padding: 0.15rem 0.5rem;
+                border: none;
                 border-radius: 8px;
+                font: inherit;
                 font-size: 0.8rem;
                 font-weight: 600;
                 flex-shrink: 0;
+                cursor: pointer;
+                transition: background 0.2s ease;
+
+                &:hover,
+                &:focus-visible {
+                    background: rgba(76, 175, 80, 0.22);
+                }
             }
         }
 

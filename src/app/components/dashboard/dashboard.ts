@@ -11,6 +11,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Router } from '@angular/router';
@@ -19,6 +20,7 @@ import { InventoryService } from '../../services/inventory.service';
 import { StatisticsService } from '../../services/statistics.service';
 import { ErrorHandlerService } from '../../services/error-handler.service';
 import { NotificationService } from '../../services/notification.service';
+import { UsageTrackingService } from '../../services/usage-tracking.service';
 import { DashboardStatistics, Recipe } from '../../models/statistics.model';
 import { InventoryItem } from '../../models/inventory.model';
 import { UsageDragDirective } from '../../shared/usage-drag.directive';
@@ -39,6 +41,7 @@ import { UsageConfirmDialogComponent } from '../../shared/usage-confirm-dialog/u
     MatProgressBarModule,
     MatProgressSpinnerModule,
     MatButtonToggleModule,
+    MatMenuModule,
     MatSnackBarModule,
     MatDialogModule,
     UsageDragDirective,
@@ -82,6 +85,7 @@ export class Dashboard implements OnInit {
     private notificationService: NotificationService,
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
+    private usageTracking: UsageTrackingService,
   ) {}
 
   async ngOnInit() {
@@ -231,6 +235,12 @@ export class Dashboard implements OnInit {
 
   onViewItem(item: InventoryItem) {
     this.router.navigate(['/item/edit', item.id]);
+  }
+
+  async onTrackUsage(item: InventoryItem): Promise<void> {
+    if (await this.usageTracking.trackUsage(item)) {
+      await Promise.all([this.groupItemsByLocation(), this.loadLowStockItems()]);
+    }
   }
 
   getTotalWastedValue(): string {
@@ -412,6 +422,9 @@ export class Dashboard implements OnInit {
         }
 
         this.errorHandler.showSuccess('✓ Usage updated successfully');
+        if (newPercentage === 0) {
+          await this.usageTracking.handleEmptyItem({ ...item, currentQuantity: 0 });
+        }
         await Promise.all([this.groupItemsByLocation(), this.loadLowStockItems()]);
       } catch (error) {
         this.errorHandler.handleDataError('update usage', error);

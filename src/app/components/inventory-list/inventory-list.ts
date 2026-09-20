@@ -27,9 +27,8 @@ import { BarcodeService } from '../../services/barcode.service';
 import { NotificationService } from '../../services/notification.service';
 import { ErrorHandlerService } from '../../services/error-handler.service';
 import { ImageService } from '../../services/image.service';
+import { UsageTrackingService } from '../../services/usage-tracking.service';
 import { InventoryItem, Category, Location } from '../../models/inventory.model';
-import { UpdateUsageDialog } from '../update-usage-dialog/update-usage-dialog';
-import { RefillDialogComponent } from './refill-dialog.component';
 import { ViewBatchesDialogComponent } from './view-batches-dialog.component';
 import { UsageDragDirective } from '../../shared/usage-drag.directive';
 import { UsageConfirmDialogComponent } from '../../shared/usage-confirm-dialog/usage-confirm-dialog.component';
@@ -172,6 +171,7 @@ export class InventoryList implements OnInit, OnDestroy {
     private router: Router,
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
+    private usageTracking: UsageTrackingService,
   ) {}
 
   getItemImage(itemId: number | undefined): string {
@@ -452,6 +452,9 @@ export class InventoryList implements OnInit, OnDestroy {
         }
 
         this.errorHandler.showSuccess('✓ Usage updated successfully');
+        if (newPercentage === 0) {
+          await this.usageTracking.handleEmptyItem({ ...item, currentQuantity: 0 });
+        }
         await this.loadData();
       } catch (error) {
         this.errorHandler.handleDataError('update usage', error);
@@ -616,110 +619,10 @@ export class InventoryList implements OnInit, OnDestroy {
     }
   }
 
-  onUpdateUsage(item: InventoryItem) {
-    const dialogRef = this.dialog.open(UpdateUsageDialog, {
-      width: '500px',
-      maxWidth: '95vw',
-      data: { item },
-    });
-
-    dialogRef.afterClosed().subscribe(async (result) => {
-      if (result) {
-        try {
-          // Check if item is now empty (quantity is 0 or marked as empty)
-          if (result.markedAsEmpty || result.remainingAmount === 0) {
-            // Show confirmation dialog with Refill or Remove options
-            const confirmDialog = this.dialog.open(EmptyItemConfirmationDialog, {
-              width: '400px',
-              maxWidth: '95vw',
-              data: { itemName: item.name },
-            });
-
-            confirmDialog.afterClosed().subscribe(async (action: 'refill' | 'remove' | null) => {
-              if (action === 'refill') {
-                // Open refill dialog
-                await this.onRefillItem(item);
-              } else if (action === 'remove') {
-                // Delete the item and all related data
-                try {
-                  await this.inventoryService.deleteItem(item.id!);
-                  this.errorHandler.showSuccess('✓ Item removed successfully');
-                  await this.loadData();
-                } catch (error) {
-                  this.errorHandler.handleDataError('remove item', error);
-                }
-              }
-            });
-            return;
-          }
-
-          // Normal usage update (not empty)
-          // Use FIFO batch deduction if batches exist
-          const batches = await this.inventoryService.getBatches(item.id!);
-
-          if (batches && batches.length > 0) {
-            // Deduct from batches using FIFO
-            const success = await this.inventoryService.deductFromBatchesFIFO(
-              item.id!,
-              result.amountUsed,
-            );
-
-            if (success) {
-              // Update main item quantity to match total from batches
-              const newTotalQuantity = await this.inventoryService.getTotalBatchQuantity(item.id!);
-              const earliestExpiration = await this.inventoryService.getEarliestBatchExpiration(
-                item.id!,
-              );
-
-              await this.inventoryService.updateItemUsage(
-                item.id!,
-                newTotalQuantity,
-                result.amountUsed,
-                result.notes,
-              );
-
-              // Update expiration date to earliest batch
-              if (earliestExpiration) {
-                await this.inventoryService.updateItem({
-                  ...item,
-                  quantity: newTotalQuantity,
-                  currentQuantity: newTotalQuantity,
-                  expirationDate: earliestExpiration,
-                });
-              }
-            } else {
-              this.errorHandler.showWarning('Not enough stock to deduct that amount');
-              return;
-            }
-          } else {
-            // No batches - use legacy tracking
-            await this.inventoryService.updateItemUsage(
-              item.id!,
-              result.remainingAmount,
-              result.amountUsed,
-              result.notes,
-            );
-          }
-
-          // Check for low stock and notify
-          if (item.initialQuantity && item.initialQuantity > 0) {
-            const percentage = (result.remainingAmount / item.initialQuantity) * 100;
-            if (percentage <= 20 && percentage > 0) {
-              await this.notificationService.checkAndNotifyLowStock(
-                item.id!,
-                item.name,
-                percentage,
-              );
-            }
-          }
-
-          this.errorHandler.showSuccess('✓ Usage updated successfully (FIFO)');
-          await this.loadData();
-        } catch (error) {
-          this.errorHandler.handleDataError('update usage', error);
-        }
-      }
-    });
+  async onUpdateUsage(item: InventoryItem) {
+    if (await this.usageTracking.trackUsage(item)) {
+      await this.loadData();
+    }
   }
 
   async onMarkAsWasted(item: InventoryItem) {
@@ -751,61 +654,9 @@ export class InventoryList implements OnInit, OnDestroy {
   }
 
   async onRefillItem(item: InventoryItem) {
-    if (!this.userId || !item.id) return;
-
-    // Get current total quantity from batches
-    const currentQuantity = await this.inventoryService.getTotalBatchQuantity(item.id);
-
-    const dialogRef = this.dialog.open(RefillDialogComponent, {
-      width: '90%',
-      maxWidth: '500px',
-      data: {
-        item,
-        currentQuantity,
-        userId: this.userId,
-      },
-    });
-
-    dialogRef.afterClosed().subscribe(async (result) => {
-      if (result) {
-        try {
-          if (result.mode === 'replace') {
-            // Delete all existing batches
-            await this.inventoryService.deleteBatchesByItem(item.id!);
-          }
-
-          // Add new batch
-          await this.inventoryService.addBatch({
-            itemId: item.id,
-            quantity: result.quantity,
-            expirationDate: result.expirationDate,
-            purchaseDate: result.purchaseDate,
-            price: result.price,
-            notes: result.notes,
-          });
-
-          // Update main item's expiration date to earliest batch expiration
-          const earliestExpiration = await this.inventoryService.getEarliestBatchExpiration(
-            item.id!,
-          );
-          const totalQuantity = await this.inventoryService.getTotalBatchQuantity(item.id!);
-
-          // Update item with new totals
-          await this.inventoryService.updateItem({
-            ...item,
-            quantity: totalQuantity,
-            expirationDate: earliestExpiration || item.expirationDate,
-            purchaseDate: result.purchaseDate,
-            price: result.price || item.price,
-          });
-
-          this.errorHandler.showSuccess(`✓ Refilled ${item.name}`);
-          await this.loadData();
-        } catch (error) {
-          this.errorHandler.handleDataError('refill item', error);
-        }
-      }
-    });
+    if (await this.usageTracking.refillItem(item)) {
+      await this.loadData();
+    }
   }
 
   async onViewBatches(item: InventoryItem) {
@@ -910,104 +761,4 @@ export class InventoryList implements OnInit, OnDestroy {
 })
 export class ImagePreviewDialog {
   constructor(@Inject(MAT_DIALOG_DATA) public data: { imageUrl: string; itemName: string }) {}
-}
-
-// Empty Item Confirmation Dialog Component
-@Component({
-  selector: 'empty-item-confirmation-dialog',
-  standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule],
-  template: `
-    <div class="empty-item-dialog">
-      <div class="dialog-header">
-        <h2 mat-dialog-title>
-          <mat-icon>inventory_2</mat-icon>
-          Item Empty
-        </h2>
-        <button mat-icon-button mat-dialog-close>
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
-      <mat-dialog-content>
-        <p>
-          <strong>{{ data.itemName }}</strong> is now out of stock.
-        </p>
-        <p>What would you like to do?</p>
-      </mat-dialog-content>
-      <mat-dialog-actions align="end">
-        <button mat-button color="warn" [mat-dialog-close]="'remove'">
-          <mat-icon>delete</mat-icon>
-          Remove Item
-        </button>
-        <button mat-raised-button color="primary" [mat-dialog-close]="'refill'">
-          <mat-icon>add_shopping_cart</mat-icon>
-          Refill Stock
-        </button>
-      </mat-dialog-actions>
-    </div>
-  `,
-  styles: [
-    `
-      .empty-item-dialog {
-        padding: 1rem;
-
-        .dialog-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1rem;
-
-          h2 {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin: 0;
-            padding-left: 0;
-
-            mat-icon {
-              color: var(--mat-warn-color);
-            }
-          }
-
-          button {
-            margin: -0.5rem -0.5rem 0 0;
-          }
-        }
-
-        mat-dialog-content {
-          padding: 1rem 0;
-
-          p {
-            margin: 0.5rem 0;
-
-            &:first-child {
-              font-size: 1rem;
-            }
-
-            strong {
-              color: var(--mat-primary-color);
-            }
-          }
-        }
-
-        mat-dialog-actions {
-          gap: 0.5rem;
-          padding: 1.5rem 0 0;
-
-          button {
-            mat-icon {
-              margin-right: 0.25rem;
-              font-size: 1.25rem;
-              width: 1.25rem;
-              height: 1.25rem;
-              vertical-align: middle;
-            }
-          }
-        }
-      }
-    `,
-  ],
-})
-export class EmptyItemConfirmationDialog {
-  constructor(@Inject(MAT_DIALOG_DATA) public data: { itemName: string }) {}
 }

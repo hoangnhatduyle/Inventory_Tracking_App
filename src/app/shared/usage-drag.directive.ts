@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 
 const MIN_DRAG_DISTANCE_PX = 4;
+const STEP_PERCENT = 5;
 
 @Directive({
   selector: '[appUsageDrag]',
@@ -83,10 +84,14 @@ export class UsageDragDirective {
   }
 
   private computePercentage(clientX: number): number {
+    const max = Math.round(this.maxPercentage);
     const rect = this.el.nativeElement.getBoundingClientRect();
-    if (rect.width <= 0) return Math.round(this.maxPercentage);
+    if (rect.width <= 0) return max;
     const raw = ((clientX - rect.left) / rect.width) * 100;
     const clamped = Math.min(Math.max(raw, 0), this.maxPercentage);
-    return Math.round(clamped);
+    const snapped = Math.round(clamped / STEP_PERCENT) * STEP_PERCENT;
+    // The current value is rarely a multiple of the step (e.g. 24%). Treat the
+    // right-hand end of the bar as "unchanged" rather than snapping below it.
+    return snapped >= max ? max : snapped;
   }
 }

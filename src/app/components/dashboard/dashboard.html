@@ -51,7 +51,7 @@
     @if (showUsageTip && hasLocations()) {
     <div class="usage-tip">
       <mat-icon>touch_app</mat-icon>
-      <span>Tip: drag any usage bar left or right to quickly update how much you've used.</span>
+      <span>Tip: drag any usage bar to quickly update how much you've used, or tap an item for more options.</span>
       <button mat-icon-button (click)="dismissUsageTip()" aria-label="Dismiss tip">
         <mat-icon>close</mat-icon>
       </button>
@@ -72,7 +72,11 @@
           @if (location.value.length > 0) {
           <ul class="board-item-list">
             @for (item of location.value; track item.id) {
-            <li class="board-item" (click)="onViewItem(item)">
+            <li class="board-item" tabindex="0" aria-haspopup="menu"
+              [matMenuTriggerFor]="itemMenu" [matMenuTriggerData]="{ item: item }"
+              #itemTrigger="matMenuTrigger"
+              (keydown.enter)="itemTrigger.openMenu()"
+              (keydown.space)="$event.preventDefault(); itemTrigger.openMenu()">
               <div class="item-content">
                 @if (getItemStatusIcon(item)) {
                 <mat-icon class="status-icon {{ getItemStatus(item) }}">
@@ -101,7 +105,9 @@
                   }
                 </div>
                 @if (item.quantity !== undefined && item.quantity !== null) {
-                <span class="item-quantity">{{ item.quantity }}</span>
+                <button type="button" class="item-quantity"
+                  (click)="$event.stopPropagation(); onTrackUsage(item)"
+                  [attr.aria-label]="'Track usage for ' + item.name">{{ item.quantity }}</button>
                 }
               </div>
               @if (item.expirationDate) {
@@ -484,3 +490,16 @@
   </div>
   }
 </div>
+
+<mat-menu #itemMenu="matMenu">
+  <ng-template matMenuContent let-item="item">
+    <button mat-menu-item (click)="onViewItem(item)">
+      <mat-icon>edit</mat-icon>
+      <span>Edit details</span>
+    </button>
+    <button mat-menu-item (click)="onTrackUsage(item)">
+      <mat-icon>data_usage</mat-icon>
+      <span>Track usage</span>
+    </button>
+  </ng-template>
+</mat-menu>
