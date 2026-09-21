@@ -111,7 +111,9 @@ export default authedHandler(async ({ user, client }, req) => {
     '{"items": [{"name": string, "quantity"?: number, "unit"?: string, ' +
     '"price"?: number, "categoryHint"?: string, "shelfLifeDaysHint"?: integer}]}. ' +
     'Skip tax, totals, discounts, store info, and non-food items. Quantities ' +
-    'default to 1. Prices in the receipt currency, no symbols. Maximum 200 items.';
+    'default to 1. "price" is the total line price as printed on the receipt ' +
+    '(i.e. for the whole quantity, not per unit), in the receipt currency, ' +
+    'no symbols. Maximum 200 items.';
 
   const raw = await chat({
     messages: [

@@ -55,7 +55,12 @@ export class ReceiptScanService {
       const result = await this.api.post<ReceiptParseResult>('/api/ai/receipt-scan', {
         imagePath,
       });
-      const items = result?.items ?? [];
+      // The API returns the line price as `price`; the review UI reads the
+      // legacy `totalPrice` alias, so populate it here.
+      const items = (result?.items ?? []).map((item) => ({
+        ...item,
+        totalPrice: item.totalPrice ?? item.price,
+      }));
       const hybrid = items.slice() as ReceiptItem[] & { items: ReceiptItem[] };
       hybrid.items = items;
       return hybrid as ReceiptParseResult & ReceiptItem[];

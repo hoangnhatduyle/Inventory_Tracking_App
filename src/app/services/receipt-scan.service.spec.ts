@@ -56,6 +56,24 @@ describe('ReceiptScanService', () => {
     expect(result.items[0].name).toBe('Milk');
   });
 
+  it('maps the API `price` onto `totalPrice` so the review UI can autofill it', async () => {
+    const pending = service.parseReceipt('user-123/receipts/a.jpg');
+    await flushMicrotasks();
+    const req = httpMock.expectOne(urlEndsWith('/api/ai/receipt-scan'));
+    req.flush({
+      data: {
+        items: [
+          { name: 'Milk', quantity: 2, price: 7.5 },
+          { name: 'Bread', quantity: 1 },
+        ],
+      },
+    });
+    const result = await pending;
+    expect(result[0].totalPrice).toBe(7.5);
+    expect(result.items[0].totalPrice).toBe(7.5);
+    expect(result[1].totalPrice).toBeUndefined();
+  });
+
   it('exposes Array methods on the result (legacy compatibility)', async () => {
     const pending = service.parseReceipt('user-123/receipts/a.jpg');
     await flushMicrotasks();
