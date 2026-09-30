@@ -391,23 +391,6 @@ export class ItemForm implements OnInit {
         await this.notificationService.scheduleExpirationNotifications(this.userId);
       }
 
-      // Create initial batch for new items (edit mode preserves existing batches)
-      if (!this.isEditMode) {
-        const batchId = await this.inventoryService.addBatch({
-          itemId: savedItemId,
-          quantity: this.quantity,
-          expirationDate: this.expirationDate ? this.formatDateToString(this.expirationDate) : null,
-          purchaseDate: this.purchaseDate
-            ? this.formatDateToString(this.purchaseDate)
-            : this.formatDateToString(new Date()),
-          price: pricePerUnit || null,
-          notes: this.notes.trim() || null,
-        });
-        if (!batchId) {
-          throw new Error('Item saved but failed to create initial stock batch');
-        }
-      }
-
       // Navigate back to previous page
       this.location.back();
     } catch (error) {

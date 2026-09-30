@@ -16,7 +16,7 @@ import { RefillDialogComponent } from '../components/inventory-list/refill-dialo
 const LOW_STOCK_PERCENTAGE = 20;
 
 /**
- * Shared "track usage" flow (dialog -> FIFO batch deduction -> empty-item
+ * Shared "track usage" flow (dialog -> usage update -> empty-item
  * handling -> low-stock notification) used by both the inventory list and the
  * dashboard so the two entry points behave identically.
  *
@@ -45,7 +45,7 @@ export class UsageTrackingService {
     try {
       const applied = await this.applyUsage(item, result);
       if (!applied) {
-        this.errorHandler.showWarning('Not enough stock to deduct that amount');
+        this.errorHandler.showWarning('Failed to update usage');
         return false;
       }
 
@@ -56,7 +56,7 @@ export class UsageTrackingService {
         }
       }
 
-      this.errorHandler.showSuccess('✓ Usage updated successfully (FIFO)');
+      this.errorHandler.showSuccess('✓ Usage updated successfully');
     } catch (error) {
       this.errorHandler.handleDataError('update usage', error);
       return false;
@@ -73,8 +73,7 @@ export class UsageTrackingService {
     const userId = await this.authService.getUserId();
     if (!userId || !item.id) return false;
 
-    // Get current total quantity from batches
-    const currentQuantity = await this.inventoryService.getTotalBatchQuantity(item.id);
+    const currentQuantity = item.currentQuantity ?? item.quantity;
 
     const result = await firstValueFrom(
       this.dialog
@@ -88,30 +87,22 @@ export class UsageTrackingService {
     if (!result) return false;
 
     try {
-      if (result.mode === 'replace') {
-        await this.inventoryService.deleteBatchesByItem(item.id);
-      }
+      const newQuantity =
+        result.mode === 'replace' ? result.quantity : currentQuantity + result.quantity;
 
-      await this.inventoryService.addBatch({
-        itemId: item.id,
-        quantity: result.quantity,
-        expirationDate: result.expirationDate,
-        purchaseDate: result.purchaseDate,
-        price: result.price,
-        notes: result.notes,
-      });
-
-      // Update main item's expiration date to earliest batch expiration
-      const earliestExpiration = await this.inventoryService.getEarliestBatchExpiration(item.id);
-      const totalQuantity = await this.inventoryService.getTotalBatchQuantity(item.id);
-
-      await this.inventoryService.updateItem({
+      const updated = await this.inventoryService.updateItem({
         ...item,
-        quantity: totalQuantity,
-        expirationDate: earliestExpiration || item.expirationDate,
+        quantity: newQuantity,
+        currentQuantity: newQuantity,
+        initialQuantity:
+          result.mode === 'replace'
+            ? newQuantity
+            : Math.max(item.initialQuantity ?? 0, newQuantity),
+        expirationDate: result.expirationDate || item.expirationDate,
         purchaseDate: result.purchaseDate,
         price: result.price || item.price,
       });
+      if (!updated) throw new Error('Failed to save refill');
 
       this.errorHandler.showSuccess(`✓ Refilled ${item.name}`);
       return true;
@@ -149,44 +140,12 @@ export class UsageTrackingService {
     return false;
   }
 
-  /** Deducts the used amount, via FIFO batches when the item has any. */
   private async applyUsage(item: InventoryItem, result: UpdateUsageDialogResult): Promise<boolean> {
-    const batches = await this.inventoryService.getBatches(item.id!);
-
-    if (!batches || batches.length === 0) {
-      // No batches - use legacy tracking
-      await this.inventoryService.updateItemUsage(
-        item.id!,
-        result.remainingAmount,
-        result.amountUsed,
-        result.notes,
-      );
-      return true;
-    }
-
-    const success = await this.inventoryService.deductFromBatchesFIFO(item.id!, result.amountUsed);
-    if (!success) return false;
-
-    // Update main item quantity to match total from batches
-    const newTotalQuantity = await this.inventoryService.getTotalBatchQuantity(item.id!);
-    const earliestExpiration = await this.inventoryService.getEarliestBatchExpiration(item.id!);
-
-    await this.inventoryService.updateItemUsage(
+    return this.inventoryService.updateItemUsage(
       item.id!,
-      newTotalQuantity,
+      result.remainingAmount,
       result.amountUsed,
       result.notes,
     );
-
-    // Update expiration date to earliest batch
-    if (earliestExpiration) {
-      await this.inventoryService.updateItem({
-        ...item,
-        quantity: newTotalQuantity,
-        currentQuantity: newTotalQuantity,
-        expirationDate: earliestExpiration,
-      });
-    }
-    return true;
   }
 }

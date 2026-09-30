@@ -2038,15 +2038,6 @@ export class ReceiptScanComponent implements OnInit {
 
       const result = await this.inventoryService.addItem(inventoryItem);
       if (result.success && result.itemId) {
-        // Create batch for the newly added item
-        await this.inventoryService.addBatch({
-          itemId: result.itemId,
-          quantity: item.quantity,
-          expirationDate: item.expirationDate || null,
-          purchaseDate: item.purchaseDate || null,
-          price: unitPrice || null,
-          notes: item.notes || null,
-        });
         addedCount++;
       }
       this.addProgress++;

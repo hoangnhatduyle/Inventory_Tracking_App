@@ -15,9 +15,6 @@ import h5 from "./_routes/categories/index.js";
 import h6 from "./_routes/cron/check-expirations.js";
 import h7 from "./_routes/health.js";
 import h8 from "./_routes/inventory/[id].js";
-import h9 from "./_routes/inventory/[id]/batches/[batchId].js";
-import h10 from "./_routes/inventory/[id]/batches/deduct.js";
-import h11 from "./_routes/inventory/[id]/batches/index.js";
 import h12 from "./_routes/inventory/[id]/images.js";
 import h13 from "./_routes/inventory/[id]/usage.js";
 import h14 from "./_routes/inventory/by-barcode/[barcode]/images.js";
@@ -57,9 +54,6 @@ const routes: Route[] = [
   { segments: ["cron","check-expirations"], handler: h6 },
   { segments: ["health"], handler: h7 },
   { segments: ["inventory",":id"], handler: h8 },
-  { segments: ["inventory",":id","batches",":batchId"], handler: h9 },
-  { segments: ["inventory",":id","batches","deduct"], handler: h10 },
-  { segments: ["inventory",":id","batches"], handler: h11 },
   { segments: ["inventory",":id","images"], handler: h12 },
   { segments: ["inventory",":id","usage"], handler: h13 },
   { segments: ["inventory","by-barcode",":barcode","images"], handler: h14 },

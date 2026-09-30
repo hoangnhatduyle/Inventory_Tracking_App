@@ -19,7 +19,6 @@ Vercel. Each handler returns a JSON envelope:
 | `GET`  | `/api/categories` | List global categories |
 | `GET POST` | `/api/inventory` | List / create inventory items |
 | `GET PATCH DELETE` | `/api/inventory/:id` | One item |
-| `GET POST` | `/api/inventory/:id/batches` | Batches for an item |
 | `GET POST` | `/api/shopping-list` | List / create |
 | `PATCH DELETE` | `/api/shopping-list/:id` | |
 | `GET POST` | `/api/locations` | |

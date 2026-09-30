@@ -122,18 +122,3 @@ export interface WastedItem {
   wastedDate: string;
   reason: string;
 }
-
-export interface InventoryBatch {
-  id?: number;
-  itemId?: number;
-  item_id?: number;
-  quantity: number;
-  expirationDate?: string | null;
-  expiration_date?: string;
-  purchaseDate?: string | null;
-  purchase_date?: string;
-  price?: number | null;
-  notes?: string | null;
-  createdAt?: string;
-  created_at?: string;
-}

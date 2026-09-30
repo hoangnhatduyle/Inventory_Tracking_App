@@ -25,18 +25,6 @@ export type InventoryItemCreate = z.infer<typeof inventoryItemCreate>;
 export const inventoryItemUpdate = inventoryItemCreate.partial();
 export type InventoryItemUpdate = z.infer<typeof inventoryItemUpdate>;
 
-// ----- batches --------------------------------------------------------------
-
-export const batchCreate = z.object({
-  itemId: z.coerce.number().int().positive(),
-  quantity: positiveNumber,
-  expirationDate: dateString.optional().nullable(),
-  purchaseDate: dateString,
-  price: positiveNumber.optional().nullable(),
-  notes: optionalText(500),
-});
-export type BatchCreate = z.infer<typeof batchCreate>;
-
 // ----- shopping list --------------------------------------------------------
 
 export const shoppingItemCreate = z.object({

@@ -61,7 +61,7 @@ import { ExpirationAIService } from '../../services/expiration-ai.service';
             <mat-radio-button value="replace" class="radio-option">
               <div class="radio-content">
                 <strong>Replace All</strong>
-                <p>Removes old batches and starts fresh</p>
+                <p>Discards remaining stock and starts fresh</p>
               </div>
             </mat-radio-button>
           </mat-radio-group>

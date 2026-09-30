@@ -30,7 +30,6 @@ import { ErrorHandlerService } from '../../services/error-handler.service';
 import { ImageService } from '../../services/image.service';
 import { UsageTrackingService } from '../../services/usage-tracking.service';
 import { InventoryItem, Category, Location } from '../../models/inventory.model';
-import { ViewBatchesDialogComponent } from './view-batches-dialog.component';
 import { UsageDragDirective } from '../../shared/usage-drag.directive';
 import { UsageConfirmDialogComponent } from '../../shared/usage-confirm-dialog/usage-confirm-dialog.component';
 
@@ -659,25 +658,6 @@ export class InventoryList implements OnInit, OnDestroy {
   async onRefillItem(item: InventoryItem) {
     if (await this.usageTracking.refillItem(item)) {
       await this.loadData();
-    }
-  }
-
-  async onViewBatches(item: InventoryItem) {
-    if (!item.id) return;
-
-    try {
-      const batches = await this.inventoryService.getBatches(item.id);
-
-      this.dialog.open(ViewBatchesDialogComponent, {
-        width: '90%',
-        maxWidth: '600px',
-        data: {
-          item,
-          batches,
-        },
-      });
-    } catch (error) {
-      this.errorHandler.handleDataError('load batches', error);
     }
   }
 

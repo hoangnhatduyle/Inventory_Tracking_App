@@ -2,7 +2,6 @@ import { inject, Injectable } from '@angular/core';
 import { ApiClient } from '../core/api-client.service';
 import {
   Category,
-  InventoryBatch,
   InventoryItem,
   ItemImage,
   Location,
@@ -227,7 +226,7 @@ export class InventoryService {
   }
 
   // --------------------------------------------------------------------------
-  // Usage history / batches  (server-driven; FIFO computed in the API)
+  // Usage history
   // --------------------------------------------------------------------------
 
   async updateItemUsage(
@@ -249,9 +248,8 @@ export class InventoryService {
   }
 
   // Applies a new "percentage remaining" to an item, deriving the equivalent
-  // amountUsed and routing through the FIFO batch path when batches exist —
-  // the same persistence flow as the manual Update Usage dialog, just keyed
-  // off a target percentage (used by the draggable usage bar).
+  // amountUsed and persisting it like the manual Update Usage dialog, just
+  // keyed off a target percentage (used by the draggable usage bar).
   async applyUsagePercentageChange(
     item: InventoryItem,
     newPercentage: number,
@@ -263,27 +261,6 @@ export class InventoryService {
     const newQuantity = (item.initialQuantity * newPercentage) / 100;
     const amountUsed = previousQuantity - newQuantity;
     if (amountUsed < 0) return false;
-
-    const batches = await this.getBatches(item.id);
-    if (batches && batches.length > 0) {
-      const success = await this.deductFromBatchesFIFO(item.id, amountUsed);
-      if (!success) return false;
-
-      const newTotalQuantity = await this.getTotalBatchQuantity(item.id);
-      const earliestExpiration = await this.getEarliestBatchExpiration(item.id);
-
-      await this.updateItemUsage(item.id, newTotalQuantity, amountUsed, notes);
-
-      if (earliestExpiration) {
-        await this.updateItem({
-          ...item,
-          quantity: newTotalQuantity,
-          currentQuantity: newTotalQuantity,
-          expirationDate: earliestExpiration,
-        });
-      }
-      return true;
-    }
 
     return this.updateItemUsage(item.id, newQuantity, amountUsed, notes);
   }
@@ -319,77 +296,5 @@ export class InventoryService {
       const threshold = i.lowStockThreshold ?? 20;
       return percentage > 0 && percentage <= threshold;
     });
-  }
-
-  async getBatches(itemId: number): Promise<InventoryBatch[]> {
-    try {
-      return await this.api.get<InventoryBatch[]>(`/api/inventory/${itemId}/batches`);
-    } catch {
-      return [];
-    }
-  }
-
-  async addBatch(batch: InventoryBatch): Promise<number> {
-    if (!batch.itemId) return 0;
-    try {
-      const saved = await this.api.post<InventoryBatch>(
-        `/api/inventory/${batch.itemId}/batches`,
-        batch,
-      );
-      return saved?.id ?? 0;
-    } catch {
-      return 0;
-    }
-  }
-
-  async updateBatch(batch: InventoryBatch): Promise<boolean> {
-    if (!batch.id || !batch.itemId) return false;
-    try {
-      await this.api.patch(`/api/inventory/${batch.itemId}/batches/${batch.id}`, batch);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  async deleteBatch(batchId: number): Promise<boolean> {
-    try {
-      await this.api.delete(`/api/inventory/batches/${batchId}`);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  async deleteBatchesByItem(itemId: number): Promise<boolean> {
-    try {
-      await this.api.delete(`/api/inventory/${itemId}/batches`);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  async getTotalBatchQuantity(itemId: number): Promise<number> {
-    const batches = await this.getBatches(itemId);
-    return batches.reduce((sum, b) => sum + (b.quantity ?? 0), 0);
-  }
-
-  async getEarliestBatchExpiration(itemId: number): Promise<string | null> {
-    const batches = await this.getBatches(itemId);
-    const dated = batches
-      .map((b) => b.expirationDate ?? b.expiration_date)
-      .filter((d): d is string => !!d)
-      .sort();
-    return dated[0] ?? null;
-  }
-
-  async deductFromBatchesFIFO(itemId: number, amountToDeduct: number): Promise<boolean> {
-    try {
-      await this.api.post(`/api/inventory/${itemId}/batches/deduct`, { amount: amountToDeduct });
-      return true;
-    } catch {
-      return false;
-    }
   }
 }

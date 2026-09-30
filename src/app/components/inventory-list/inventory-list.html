@@ -295,9 +295,6 @@
             <button mat-icon-button color="primary" (click)="$event.stopPropagation(); onRefillItem(item)" matTooltip="Refill Stock">
               <mat-icon>autorenew</mat-icon>
             </button>
-            <button mat-icon-button (click)="$event.stopPropagation(); onViewBatches(item)" matTooltip="View Batches">
-              <mat-icon>layers</mat-icon>
-            </button>
             <button mat-icon-button (click)="$event.stopPropagation(); onUpdateUsage(item)" matTooltip="Track Usage">
               <mat-icon>timeline</mat-icon>
             </button>
@@ -429,10 +426,6 @@
             <button mat-menu-item (click)="onRefillItem(item)">
               <mat-icon>autorenew</mat-icon>
               <span>Refill Stock</span>
-            </button>
-            <button mat-menu-item (click)="onViewBatches(item)">
-              <mat-icon>layers</mat-icon>
-              <span>View Batches</span>
             </button>
             <button mat-menu-item (click)="onUpdateUsage(item)">
               <mat-icon>timeline</mat-icon>
